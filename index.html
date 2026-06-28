@@ -555,7 +555,31 @@
             document.getElementById('envTime').value = now.toTimeString().slice(0, 5);
         }
 
-// NEW: Auto-Fetch live weather data from HKO with Multi-Proxy Fallback Loop
+        // NEW: JSONP Fetcher (Bypasses CORS and strict mobile browser security)
+        function fetchJSONP(url) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                
+                // Create a temporary global function for the proxy to send data to
+                window[callbackName] = function(data) {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data); // Return the data safely back to the app
+                };
+
+                // Create a temporary script tag to load the data cross-origin
+                const script = document.createElement('script');
+                script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+                script.onerror = function() {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error("JSONP network request was blocked."));
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        // NEW: Auto-Fetch live weather data from HKO utilizing JSONP for CSV bypass
         async function autoFillWeather() {
             if (!navigator.onLine) {
                 alert("⚠️ No internet connection. Cannot fetch live HKO data.");
@@ -581,7 +605,7 @@
             let currentStep = "Initiating fetch sequence";
 
             try {
-                // --- 1. Fetch Temperature (Direct API - Usually no CORS issue) ---
+                // --- 1. Fetch Temperature (Direct API - JSON servers allow CORS natively) ---
                 currentStep = "Fetching Temperature Data";
                 const tempUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en&_=${Date.now()}`;
                 const tempRes = await fetch(tempUrl);
@@ -602,37 +626,22 @@
                     }
                 }
 
-                // --- 2. Fetch Wind Data (Multi-Proxy Fallback Loop) ---
-                currentStep = "Fetching Wind CSV Data";
+                // --- 2. Fetch Wind Data (Via JSONP - Bypasses CORS completely) ---
+                currentStep = "Fetching Wind CSV Data via JSONP";
                 const baseCSV = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
                 
-                // We line up multiple routes to the server. If the browser blocks one, we try the next!
-                const fetchRoutes = [
-                    `https://corsproxy.io/?${encodeURIComponent(baseCSV)}`,              // Route 1 (Most reliable)
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(baseCSV)}`, // Route 2
-                    `https://thingproxy.freeboard.io/fetch/${baseCSV}`                   // Route 3
-                ];
-
-                let csvText = null;
-                for (let url of fetchRoutes) {
-                    try {
-                        const windRes = await fetch(url);
-                        if (windRes.ok) {
-                            csvText = await windRes.text();
-                            break; // It worked! Break out of the loop and stop trying other proxies.
-                        }
-                    } catch (e) {
-                        console.warn("Browser blocked route:", url);
-                        // Silently move to the next proxy in the list
-                    }
-                }
-
-                // If ALL proxies failed, throw the error
-                if (!csvText) {
-                    throw new Error("All network routes were strictly blocked by your browser.");
+                // We ask the proxy to wrap the CSV file in a JSONP callback script
+                const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(baseCSV)}`;
+                
+                // This bypasses fetch() entirely!
+                const proxyData = await fetchJSONP(jsonpUrl);
+                
+                if (!proxyData || !proxyData.contents) {
+                    throw new Error("Proxy returned empty data.");
                 }
                 
                 currentStep = "Parsing Wind CSV Rows";
+                const csvText = proxyData.contents;
                 const lines = csvText.trim().split('\n');
                 let stationWindData = null;
 
@@ -692,7 +701,7 @@
 
             } catch (err) {
                 console.error("HKO Fetch Error:", err);
-                alert(`❌ Fetch Failed at step: [${currentStep}]\n\nReason: Your mobile browser (or ad-blocker) is strictly blocking background file downloads. Try turning off "Cross-Site Tracking Prevention" in your browser settings.`);
+                alert(`❌ Fetch Failed at step: [${currentStep}]\nDetails: ${err.message}`);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
