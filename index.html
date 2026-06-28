@@ -555,31 +555,8 @@
             document.getElementById('envTime').value = now.toTimeString().slice(0, 5);
         }
 
-        // NEW: JSONP Fetcher (Bypasses CORS and strict mobile browser security)
-        function fetchJSONP(url) {
-            return new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-                
-                // Create a temporary global function for the proxy to send data to
-                window[callbackName] = function(data) {
-                    delete window[callbackName];
-                    document.body.removeChild(script);
-                    resolve(data); // Return the data safely back to the app
-                };
 
-                // Create a temporary script tag to load the data cross-origin
-                const script = document.createElement('script');
-                script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
-                script.onerror = function() {
-                    delete window[callbackName];
-                    document.body.removeChild(script);
-                    reject(new Error("JSONP network request was blocked."));
-                };
-                document.body.appendChild(script);
-            });
-        }
-
-        // NEW: Auto-Fetch live weather data from HKO with Bulletproof Parsing and Backup Stations
+        // NEW: Auto-Fetch live weather data from HKO (Cloudflare Pages Optimized)
         async function autoFillWeather() {
             if (!navigator.onLine) {
                 alert("⚠️ No internet connection. Cannot fetch live HKO data.");
@@ -592,7 +569,7 @@
                 return;
             }
 
-            // 1. Define Primary and Backup Stations (Based on geographic proximity)
+            // 1. Define Primary and Backup Stations
             let targetStations = []; 
             if (currentRoute === 'NE') targetStations = ['Tap Mun', 'Sai Kung', 'Tai Po Kau'];
             else if (currentRoute === 'S') targetStations = ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'];
@@ -614,7 +591,6 @@
                 if (tempRes.ok) {
                     const tempData = await tempRes.json();
                     if (tempData && tempData.temperature && tempData.temperature.data) {
-                        // Check our target array first, then default to King's Park
                         const prefs = [...targetStations, "King's Park"];
                         let tempVal = null;
                         for (let p of prefs) {
@@ -628,30 +604,45 @@
                     }
                 }
 
-                // --- 3. Fetch Wind Data (Using JSONP method to guarantee connection) ---
-                currentStep = "Fetching Wind CSV Data via JSONP";
+                // --- 3. Fetch Wind Data (Direct / Proxy Fallback Loop) ---
+                currentStep = "Fetching Wind CSV Data";
                 const baseCSV = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
-                const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(baseCSV)}`;
                 
-                const proxyData = await fetchJSONP(jsonpUrl);
-                if (!proxyData || !proxyData.contents) throw new Error("Proxy returned empty data.");
-                
-                currentStep = "Parsing Wind CSV Rows";
-                const csvText = proxyData.contents;
-                
-                // Security check: Make sure we actually got a CSV, not an HTML error page
-                if (csvText.toLowerCase().includes('<!doctype html>')) {
-                    throw new Error("Proxy returned an HTML page instead of the HKO CSV file.");
+                // Because you are on a real server now, we try direct fetch first, then standard proxies
+                const fetchRoutes = [
+                    `${baseCSV}?_=${Date.now()}`,                                        // Route 1: Direct to HKO
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(baseCSV)}`, // Route 2: Raw Proxy
+                    `https://corsproxy.io/?${encodeURIComponent(baseCSV)}`               // Route 3: Backup Proxy
+                ];
+
+                let csvText = null;
+                for (let url of fetchRoutes) {
+                    try {
+                        const windRes = await fetch(url);
+                        if (windRes.ok) {
+                            csvText = await windRes.text();
+                            // Double-check the proxy didn't return an HTML error page
+                            if (!csvText.toLowerCase().includes('<!doctype html>')) {
+                                break; // We got the CSV! Break out of the loop.
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Chrome blocked route:", url);
+                    }
                 }
 
+                if (!csvText) {
+                    throw new Error("Chrome blocked all network routes. Do you have an ad-blocker or strict tracking protection enabled?");
+                }
+                
+                currentStep = "Parsing Wind CSV Rows";
                 const lines = csvText.trim().split('\n');
                 let stationWindData = null;
                 let matchedStation = null;
 
-                // Loop through our preferred stations in order (e.g. Cheung Chau -> Cheung Chau Beach)
+                // Bulletproof CSV Parser
                 for (let target of targetStations) {
                     for (let i = 1; i < lines.length; i++) {
-                        // BULLETPROOF CSV PARSER: Safely ignores commas hidden inside dates/quotes
                         const cleanCols = [];
                         let current = '';
                         let inQuotes = false;
@@ -662,13 +653,9 @@
                         }
                         cleanCols.push(current.trim());
                         
-                        // Clean any remaining quotes off the final strings
                         const finalCols = cleanCols.map(c => c.replace(/["']/g, '').trim());
-                        
-                        // Dynamically find which column holds our target station
                         const stationIndex = finalCols.indexOf(target);
                         
-                        // If found, and we have enough columns to safely extract Dir and Speed
                         if (stationIndex !== -1 && finalCols.length >= stationIndex + 2) {
                             stationWindData = {
                                 direction: finalCols[stationIndex + 1],
@@ -678,7 +665,7 @@
                             break;
                         }
                     }
-                    if (stationWindData) break; // Stop hunting once we find a working station!
+                    if (stationWindData) break; 
                 }
 
                 if (stationWindData) {
@@ -719,7 +706,6 @@
                         }
                     }
 
-                    // UX Bonus: If we used a backup station, tell the surveyor!
                     if (matchedStation !== targetStations[0]) {
                         alert(`ℹ️ Notice: The ${targetStations[0]} weather station is currently offline. Auto-filled using backup station data from ${matchedStation}.`);
                     }
