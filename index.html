@@ -579,7 +579,7 @@
             });
         }
 
-        // NEW: Auto-Fetch live weather data from HKO utilizing JSONP for CSV bypass
+        // NEW: Auto-Fetch live weather data from HKO with Bulletproof Parsing and Backup Stations
         async function autoFillWeather() {
             if (!navigator.onLine) {
                 alert("⚠️ No internet connection. Cannot fetch live HKO data.");
@@ -592,10 +592,11 @@
                 return;
             }
 
-            let targetStation = 'Waglan Island'; 
-            if (currentRoute === 'NE') targetStation = 'Tap Mun';
-            else if (currentRoute === 'S') targetStation = 'Cheung Chau';
-            else if (currentRoute === 'SE') targetStation = 'Waglan Island';
+            // 1. Define Primary and Backup Stations (Based on geographic proximity)
+            let targetStations = []; 
+            if (currentRoute === 'NE') targetStations = ['Tap Mun', 'Sai Kung', 'Tai Po Kau'];
+            else if (currentRoute === 'S') targetStations = ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'];
+            else if (currentRoute === 'SE') targetStations = ['Waglan Island', 'Tseung Kwan O'];
 
             const btn = document.getElementById('btn-fetch-weather');
             const originalText = btn.innerHTML;
@@ -605,7 +606,7 @@
             let currentStep = "Initiating fetch sequence";
 
             try {
-                // --- 1. Fetch Temperature (Direct API - JSON servers allow CORS natively) ---
+                // --- 2. Fetch Temperature ---
                 currentStep = "Fetching Temperature Data";
                 const tempUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en&_=${Date.now()}`;
                 const tempRes = await fetch(tempUrl);
@@ -613,7 +614,8 @@
                 if (tempRes.ok) {
                     const tempData = await tempRes.json();
                     if (tempData && tempData.temperature && tempData.temperature.data) {
-                        const prefs = [targetStation, 'Waglan Island', "King's Park"];
+                        // Check our target array first, then default to King's Park
+                        const prefs = [...targetStations, "King's Park"];
                         let tempVal = null;
                         for (let p of prefs) {
                             const found = tempData.temperature.data.find(d => d.place === p);
@@ -626,40 +628,63 @@
                     }
                 }
 
-                // --- 2. Fetch Wind Data (Via JSONP - Bypasses CORS completely) ---
+                // --- 3. Fetch Wind Data (Using JSONP method to guarantee connection) ---
                 currentStep = "Fetching Wind CSV Data via JSONP";
                 const baseCSV = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
-                
-                // We ask the proxy to wrap the CSV file in a JSONP callback script
                 const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(baseCSV)}`;
                 
-                // This bypasses fetch() entirely!
                 const proxyData = await fetchJSONP(jsonpUrl);
-                
-                if (!proxyData || !proxyData.contents) {
-                    throw new Error("Proxy returned empty data.");
-                }
+                if (!proxyData || !proxyData.contents) throw new Error("Proxy returned empty data.");
                 
                 currentStep = "Parsing Wind CSV Rows";
                 const csvText = proxyData.contents;
+                
+                // Security check: Make sure we actually got a CSV, not an HTML error page
+                if (csvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Proxy returned an HTML page instead of the HKO CSV file.");
+                }
+
                 const lines = csvText.trim().split('\n');
                 let stationWindData = null;
+                let matchedStation = null;
 
-                for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',');
-                    if (cols.length >= 4) { 
-                        const stationName = cols[1].replace(/["']/g, '').trim();
-                        if (stationName === targetStation) {
-                            stationWindData = cols;
+                // Loop through our preferred stations in order (e.g. Cheung Chau -> Cheung Chau Beach)
+                for (let target of targetStations) {
+                    for (let i = 1; i < lines.length; i++) {
+                        // BULLETPROOF CSV PARSER: Safely ignores commas hidden inside dates/quotes
+                        const cleanCols = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let char of lines[i]) {
+                            if (char === '"') inQuotes = !inQuotes;
+                            else if (char === ',' && !inQuotes) { cleanCols.push(current.trim()); current = ''; }
+                            else current += char;
+                        }
+                        cleanCols.push(current.trim());
+                        
+                        // Clean any remaining quotes off the final strings
+                        const finalCols = cleanCols.map(c => c.replace(/["']/g, '').trim());
+                        
+                        // Dynamically find which column holds our target station
+                        const stationIndex = finalCols.indexOf(target);
+                        
+                        // If found, and we have enough columns to safely extract Dir and Speed
+                        if (stationIndex !== -1 && finalCols.length >= stationIndex + 2) {
+                            stationWindData = {
+                                direction: finalCols[stationIndex + 1],
+                                speed: finalCols[stationIndex + 2]
+                            };
+                            matchedStation = target;
                             break;
                         }
                     }
+                    if (stationWindData) break; // Stop hunting once we find a working station!
                 }
 
                 if (stationWindData) {
                     currentStep = "Applying Wind Data to Form";
-                    const rawDir = stationWindData[2].replace(/["']/g, '').trim();   
-                    const rawSpeed = stationWindData[3].replace(/["']/g, '').trim(); 
+                    const rawDir = stationWindData.direction;   
+                    const rawSpeed = stationWindData.speed; 
 
                     const dirMap = {
                         "North": "N", "Northeast": "NE", "East": "E", "Southeast": "SE",
@@ -693,8 +718,14 @@
                             document.getElementById('envWindForce').value = beaufort;
                         }
                     }
+
+                    // UX Bonus: If we used a backup station, tell the surveyor!
+                    if (matchedStation !== targetStations[0]) {
+                        alert(`ℹ️ Notice: The ${targetStations[0]} weather station is currently offline. Auto-filled using backup station data from ${matchedStation}.`);
+                    }
+
                 } else {
-                    alert(`⚠️ Alert: Wind data for ${targetStation} is missing from the HKO live CSV.`);
+                    alert(`⚠️ Alert: Wind data for ${targetStations.join(' / ')} is currently offline from the HKO live feed.`);
                 }
 
                 if (activeChecklistId) quickSave();
