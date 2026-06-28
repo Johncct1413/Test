@@ -604,20 +604,25 @@
                     }
                 }
 
-                // --- 3. Fetch Wind Data (Using Custom Cloudflare Function) ---
-                currentStep = "Fetching Wind CSV Data via Cloudflare";
+                // --- 3. Fetch Wind Data (via Private Google Apps Script Proxy) ---
+                currentStep = "Fetching Wind CSV Data";
                 
-                // Fetch directly from your own domain's hidden API!
-                const windRes = await fetch('/wind');
+                // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE:
+                const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzG6bCAzqVKTHKW7RIwnXGE4Sfi9fhHW0RFQ_sfemgAzDMJC_KNTaVIsQnb9U1l6amrBg/exec';
                 
-                if (!windRes.ok) throw new Error("Failed to reach custom Cloudflare proxy.");
-                let csvText = await windRes.text();
+                const windRes = await fetch(googleProxyUrl);
                 
-                // Validate that we got a CSV and not an HTML error page
-                if (!csvText || csvText.toLowerCase().includes('<!doctype html>')) {
-                    throw new Error("Invalid CSV data received from HKO.");
+                if (!windRes.ok) {
+                    throw new Error("Failed to connect to Google Proxy.");
                 }
-                
+
+                let csvText = await windRes.text();
+
+                // Validation to ensure HKO didn't send us an error page
+                if (!csvText || csvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid CSV data received. HKO might be performing server maintenance.");
+                }
+
                 currentStep = "Parsing Wind CSV Rows";
                 const lines = csvText.trim().split('\n');
                 let stationWindData = null;
