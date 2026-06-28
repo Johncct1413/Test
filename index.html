@@ -267,7 +267,7 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h4 style="margin: 0;">🌤️ Weather</h4>
-                    <button id="btn-fetch-weather" onclick="autoFillWeather()" style="width: auto; padding: 4px 10px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: 1px solid var(--accent-ocean); font-size: 11px; font-weight: bold; border-radius: 4px;">☁️ Auto-Fill HKO</button>
+                    <button id="btn-fetch-weather" onclick="autoFillWeather()" style="width: auto; padding: 4px 10px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: 1px solid var(--accent-ocean); font-size: 11px; font-weight: bold; border-radius: 4px;">☁️ Auto-Fill HKO Weather (Beta Ver.)</button>
                 </div>
                 <div class="two-col">
                     <div>
@@ -276,7 +276,17 @@
                     </div>
                     <div>
                         <label>Weather</label>
-                        <input type="text" id="envWeather" placeholder="e.g. Sunny">
+                        <input type="text" id="envWeather" list="weather-options" placeholder="Select or type...">
+                        <datalist id="weather-options">
+                            <option value="Sunny">
+                            <option value="Fine">
+                            <option value="Cloudy">
+                            <option value="Overcast">
+                            <option value="Showers">
+                            <option value="Rainy">
+                            <option value="Drizzles">
+                            <option value="Haze">
+                        </datalist>
                     </div>
                     <div>
                         <label>Wind Direction</label>
@@ -413,14 +423,20 @@
             <button class="btn-primary" onclick="restoreText()" style="margin-top: 10px; width: 100%; background: #0284c7;">🔄 Restore Data</button>
             <button class="btn-danger" onclick="clearAllData()" style="margin-top: 10px; width: 100%; border: 1px solid #d94f3d;">🗑️ Clear All Data</button>
             <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 12px; border-top: 1px dashed var(--border-light); padding-top: 15px;">
-                <p style="margin: 0 0 4px 0;"><strong style="color: var(--primary);">TernTracker HK v1.2.0</strong></p>
+                <p style="margin: 0 0 4px 0;"><strong style="color: var(--primary);">TernTracker HK v1.3.0</strong></p>
                 <p style="margin: 0 0 4px 0;">Developed for Fieldwork Data Collection by John Chung</p>
                 <p style="margin: 0 0 12px 0;">For Internal Use Only • Last Updated: Jun 2026</p>
                 <details style="text-align: left; background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
                     <summary style="font-weight: bold; cursor: pointer; color: var(--primary); outline: none; list-style-position: inside;">📋 View Change Log</summary>
                     <div style="margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--text-main); border-top: 1px solid var(--border-light); padding-top: 8px;">
 
-                        <strong style="color: var(--accent-ocean);">v1.2.0 (Latest Update)</strong>
+                        <strong style="color: var(--accent-ocean);">v1.3.0 (Latest Update)</strong>
+                        <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
+                            <li><strong>Feature:</strong> "Auto-Fill HKO" now in beta version for automatically filling the weather from HKO of the nearest pre-set weaher stattion.</li>
+                            <li><strong>Feature:</strong> Weather input upgraded to a dropdown for quick selection (Sunny, Cloudy).</li>
+                        </ul>
+
+                        <strong style="color: var(--accent-ocean);">v1.2.0</strong>
                         <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
                             <li><strong>Feature:</strong> Real-time validation for Min/Max Nest Heights with colony-specific thresholds.</li>
                             <li><strong>Feature:</strong> Top header now dynamically updates to reflect real-time location changes.</li>
@@ -555,8 +571,7 @@
             document.getElementById('envTime').value = now.toTimeString().slice(0, 5);
         }
 
-
-       // NEW: Auto-Fetch live weather data from HKO (Cloudflare Pages Optimized)
+        // NEW: Auto-Fetch live weather data from HKO (Google Apps Script Proxy)
         async function autoFillWeather() {
             if (!navigator.onLine) {
                 alert("⚠️ No internet connection. Cannot fetch live HKO data.");
@@ -564,16 +579,81 @@
             }
 
             const currentRoute = document.getElementById('transectId').value;
+            const currentArea = document.getElementById('subTransect').value;
+            
             if (!currentRoute) {
-                alert("⚠️ Please select a Route (Waters) first so we can fetch the correct local station data.");
+                alert("⚠️ Please select Waters first so as to fetch the correct local station data.");
                 return;
             }
 
-            // 1. Define Primary and Backup Stations
-            let targetStations = []; 
-            if (currentRoute === 'NE') targetStations = ['Tap Mun', 'Sai Kung', 'Tai Po Kau'];
-            else if (currentRoute === 'S') targetStations = ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'];
-            else if (currentRoute === 'SE') targetStations = ['Waglan Island', 'Tseung Kwan O'];
+            // ==========================================
+            // 1. SMART STATION SELECTOR
+            // ==========================================
+            
+            // Default stations used if the specific area isn't customized below
+            const routeDefaults = {
+                'NE': ['Tap Mun', 'Pak Tam Chung', 'Sai Kung'],
+                'S':  ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'],
+                'SE': ['Waglan Island', 'Kau Sai Chau']
+            };
+
+            // Custom Station Overrides per Area! 
+            // Add as many specific areas here as you want. Make sure the names exactly match the dropdown.
+            const areaOverrides = {
+                "Ma Liu Shui Pier - Che Lei Pai": ["Sha Tin", "Tai Po", "Tap Mun"],
+                "Che Lei Pai": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Che Lei Pai - Hoi Ha": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Hoi Ha": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Hoi Ha - Chap Mo Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Chap Mo Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Chap Mo Chau - Yan Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Yan Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Yan Chau - Wong Nai Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Wong Nai Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Wong Nai Chau - Round Island": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Round Island (Pak Sha Chau)": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Round Island - Port Island": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Port Island" : ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Port Island - Kung Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Kung Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Kung Chau - Shek Ngau Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Shek Ngau Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Shek Ngau Chau - Tap Mun": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Tap Mun": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Tap Mun - Wong Shek Pier": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Wong Shek Pier": ["Tap Mun", "Pak Tam Chung", "Sai Kung"],
+                "Aberdeen Pier - Lo Chau Pak Pai": ["Wong Chuk Hang", "Stanley"], 
+                "Lo Chau Pak Pai": ["Waglan Island", "Stanley"], 
+                "Lo Chau Pak Pai - Waglan Island": ["Waglan Island", "Stanley"],
+                "Waglan Island": ["Waglan Island", "Stanley"],
+                "Waglan Island - East Ninepin": ["Waglan Island", "Stanley"],
+                "Tuen Chau Tsai/Kak Shan Chau (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "Lung Shuen Pai (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "Shue Long Chau (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "East Ninepin - Kong Tau Pai": ["Clear Water Bay", "Waglan Island"], 
+                "Kong Tau Pai": ["Kau Sai Chau", "Sai Kung"],
+                "Kong Tau Pai - Sai Kung Pier": ["Kau Sai Chau", "Sai Kung"], 
+                "Sai Kung Pier": ["Sai Kung", "Kau Sai Chau"],
+                "East Lamma Channel, Area between Aberdeen and South Lamma" : ["Lamma Island", "Cheung Chau"], 
+                "South Lamma - Soko Islands": ["Lamma Island", "Cheung Chau", "Cheung Chau Beach"], 
+                "Tau Lo Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Yuen Kong Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Tai A Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Ma Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Yuen Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Shek Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Wan Hau Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Siu A Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Cheung Muk Tau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Ko Pai (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Adamasta Channel and area near Shek Kwu Chau and Cheung Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "West Lamma Channel, between Cheung Chau, Hei Ling Chau and Peng Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Peng Chau - Tsim Sha Tsui Pier": ["Peng Chau", "Cheung Chau", "Cheung Chau Beach"], 
+                "Tsim Sha Tsui Pier": ["King's Park", "HK Observatory", "Star Ferry"],
+            };
+
+            // The App decides: Use the override if it exists, otherwise use the Route default.
+            let targetStations = areaOverrides[currentArea] || routeDefaults[currentRoute] || [];
 
             const btn = document.getElementById('btn-fetch-weather');
             const originalText = btn.innerHTML;
@@ -581,76 +661,100 @@
             btn.disabled = true;
 
             let currentStep = "Initiating fetch sequence";
+            
+            // ⚠️ YOUR NEW UNIVERSAL GOOGLE PROXY URL:
+            const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
+
+            const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
 
             try {
-                // --- 2. Fetch Temperature ---
-                currentStep = "Fetching Temperature Data";
-                const tempUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en&_=${Date.now()}`;
-                const tempRes = await fetch(tempUrl);
+                // ==========================================
+                // --- 2. Fetch Temperature Data (CSV) ---
+                // ==========================================
+                currentStep = "Fetching Temperature CSV Data";
+                const hkoTempCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv';
                 
-                if (tempRes.ok) {
-                    const tempData = await tempRes.json();
-                    if (tempData && tempData.temperature && tempData.temperature.data) {
-                        const prefs = [...targetStations, "King's Park"];
-                        let tempVal = null;
-                        for (let p of prefs) {
-                            const found = tempData.temperature.data.find(d => d.place === p);
-                            if (found) { tempVal = found.value; break; }
+                const fetchTempUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoTempCsv)}&_=${Date.now()}`;
+                const tempRes = await fetch(fetchTempUrl);
+                
+                if (!tempRes.ok) throw new Error("Failed to connect to Google Proxy for Temperature.");
+                let tempCsvText = await tempRes.text();
+                
+                if (!tempCsvText || tempCsvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid Temperature CSV data received.");
+                }
+
+                currentStep = "Parsing Temperature CSV Rows";
+                const tempLines = tempCsvText.trim().split('\n');
+                const tempPrefs = [...targetStations, "King's Park", "Sha Tin", "Hong Kong Observatory"]; 
+                let tempVal = null;
+                let matchedTempStation = null;
+
+                for (let target of tempPrefs) {
+                    const cleanTarget = normalize(target);
+                    
+                    for (let i = 1; i < tempLines.length; i++) {
+                        const cols = tempLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
+                        
+                        if (cols.length >= 3 && normalize(cols[1]).includes(cleanTarget)) {
+                            const parsedVal = parseFloat(cols[2]);
+                            if (!isNaN(parsedVal)) {
+                                tempVal = parsedVal;
+                                matchedTempStation = target;
+                                break;
+                            }
                         }
-                        if (!tempVal && tempData.temperature.data.length > 0) {
-                            tempVal = tempData.temperature.data[0].value;
-                        }
-                        if (tempVal) document.getElementById('envTemp').value = tempVal;
                     }
+                    if (tempVal !== null) break; 
                 }
 
-                // --- 3. Fetch Wind Data (via Private Google Apps Script Proxy) ---
+                if (tempVal !== null) {
+                    const tempInput = document.getElementById('envTemp');
+                    tempInput.setAttribute('step', '0.1'); 
+                    tempInput.value = tempVal;
+                } else {
+                    console.warn("Temperature not found. Attempted:", tempPrefs.join(', '));
+                }
+
+                // ==========================================
+                // --- 3. Fetch Wind Data (CSV) ---
+                // ==========================================
                 currentStep = "Fetching Wind CSV Data";
+                const hkoWindCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
                 
-                // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE:
-                const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzG6bCAzqVKTHKW7RIwnXGE4Sfi9fhHW0RFQ_sfemgAzDMJC_KNTaVIsQnb9U1l6amrBg/exec';
+                const fetchWindUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoWindCsv)}&_=${Date.now()}`;
+                const windRes = await fetch(fetchWindUrl);
                 
-                const windRes = await fetch(googleProxyUrl);
-                
-                if (!windRes.ok) {
-                    throw new Error("Failed to connect to Google Proxy.");
-                }
+                if (!windRes.ok) throw new Error("Failed to connect to Google Proxy for Wind.");
+                let windCsvText = await windRes.text();
 
-                let csvText = await windRes.text();
-
-                // Validation to ensure HKO didn't send us an error page
-                if (!csvText || csvText.toLowerCase().includes('<!doctype html>')) {
-                    throw new Error("Invalid CSV data received. HKO might be performing server maintenance.");
+                if (!windCsvText || windCsvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid Wind CSV data received.");
                 }
 
                 currentStep = "Parsing Wind CSV Rows";
-                const lines = csvText.trim().split('\n');
+                const windLines = windCsvText.trim().split('\n');
                 let stationWindData = null;
-                let matchedStation = null;
+                let matchedWindStation = null;
 
-                // Bulletproof CSV Parser
                 for (let target of targetStations) {
-                    for (let i = 1; i < lines.length; i++) {
-                        const cleanCols = [];
-                        let current = '';
-                        let inQuotes = false;
-                        for (let char of lines[i]) {
-                            if (char === '"') inQuotes = !inQuotes;
-                            else if (char === ',' && !inQuotes) { cleanCols.push(current.trim()); current = ''; }
-                            else current += char;
-                        }
-                        cleanCols.push(current.trim());
+                    const cleanTarget = normalize(target);
+                    
+                    for (let i = 1; i < windLines.length; i++) {
+                        const cols = windLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
                         
-                        const finalCols = cleanCols.map(c => c.replace(/["']/g, '').trim());
-                        const stationIndex = finalCols.indexOf(target);
-                        
-                        if (stationIndex !== -1 && finalCols.length >= stationIndex + 2) {
-                            stationWindData = {
-                                direction: finalCols[stationIndex + 1],
-                                speed: finalCols[stationIndex + 2]
-                            };
-                            matchedStation = target;
-                            break;
+                        if (cols.length >= 4 && normalize(cols[1]).includes(cleanTarget)) {
+                            const rawDir = cols[2];
+                            const rawSpeed = cols[3].replace(/[^0-9a-zA-Z]/g, ''); 
+                            
+                            if (rawSpeed !== "") {
+                                stationWindData = {
+                                    direction: rawDir,
+                                    speed: rawSpeed
+                                };
+                                matchedWindStation = target;
+                                break;
+                            }
                         }
                     }
                     if (stationWindData) break; 
@@ -667,13 +771,13 @@
                         "Variable": "VRB", "Calm": "Calm"
                     };
                     
-                    if (rawDir && rawDir !== "N/A") {
+                    if (rawDir && rawDir.toUpperCase() !== "N/A") {
                         document.getElementById('envWindDir').value = dirMap[rawDir] || rawDir;
                     }
 
-                    if (rawSpeed === "Calm") {
+                    if (rawSpeed.toUpperCase() === "CALM") {
                         document.getElementById('envWindForce').value = 0;
-                    } else if (rawSpeed && rawSpeed !== "N/A") {
+                    } else if (rawSpeed && rawSpeed.toUpperCase() !== "N/A") {
                         const speed = parseInt(rawSpeed);
                         if (!isNaN(speed)) {
                             let beaufort = 0;
@@ -693,14 +797,25 @@
                             document.getElementById('envWindForce').value = beaufort;
                         }
                     }
-
-                    if (matchedStation !== targetStations[0]) {
-                        alert(`ℹ️ Notice: The ${targetStations[0]} weather station is currently offline. Auto-filled using backup station data from ${matchedStation}.`);
-                    }
-
-                } else {
-                    alert(`⚠️ Alert: Wind data for ${targetStations.join(' / ')} is currently offline from the HKO live feed.`);
                 }
+
+                // ==========================================
+                // --- 4. Success Notice / Reporting ---
+                // ==========================================
+                let noticeMsg = "✅ Weather data auto-filled successfully!\n\n";
+                
+                // Show what the app TRIED to get first
+                noticeMsg += `🎯 Target Location: ${currentArea ? currentArea : currentRoute}\n`;
+                noticeMsg += `🌡️ Temp Station Used: ${matchedTempStation || 'Not Found'}\n`;
+                noticeMsg += `💨 Wind Station Used: ${matchedWindStation || 'Not Found'}`;
+
+                // Add a gentle warning if a primary station was offline
+                if ((matchedWindStation && matchedWindStation !== targetStations[0]) || 
+                    (matchedTempStation && matchedTempStation !== targetStations[0])) {
+                    noticeMsg += `\n\nℹ️ Note: Primary station offline or unavailable. Backup station data was used.`;
+                }
+
+                alert(noticeMsg);
 
                 if (activeChecklistId) quickSave();
 
