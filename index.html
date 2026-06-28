@@ -666,6 +666,14 @@
             const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
 
             const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const FETCH_TIMEOUT_MS = 10000; 
+
+            // --- 1. NEW: LOCK THE BOTTOM NAVIGATION ---
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(nav => {
+                nav.style.pointerEvents = 'none';
+                nav.style.opacity = '0.5'; // Dims the buttons so the user knows they are locked
+            });
 
             try {
                 // ==========================================
@@ -825,6 +833,18 @@
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
+
+                // --- 2. NEW: UNLOCK THE BOTTOM NAVIGATION ---
+                navButtons.forEach(nav => {
+                    // Only unlock tabs that aren't natively locked by your checklist logic
+                    if (nav.id !== 'nav-tab-entry' || activeChecklistId) {
+                        nav.style.pointerEvents = 'auto';
+                        nav.style.opacity = '1';
+                    } else {
+                        // Keeps the Bird tab dimmed if no checklist is active!
+                        nav.style.opacity = '0.3'; 
+                    }
+                });
             }
         }
 
