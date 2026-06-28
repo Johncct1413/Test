@@ -604,43 +604,18 @@
                     }
                 }
 
-                // --- 3. Fetch Wind Data (Direct / Proxy Fallback Loop) ---
-                currentStep = "Fetching Wind CSV Data";
-                const baseCSV = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
+                // --- 3. Fetch Wind Data (Using Custom Cloudflare Function) ---
+                currentStep = "Fetching Wind CSV Data via Cloudflare";
                 
-                // Create a unique cache-busted URL FIRST
-                const cacheBustedCSV = `${baseCSV}?_=${Date.now()}`;
+                // Fetch directly from your own domain's hidden API!
+                const windRes = await fetch('/wind');
                 
-                // THE FIX: An expanded, highly robust proxy fallback list. 
-                // The app will try these one by one until it successfully gets the CSV.
-                const fetchRoutes = [
-                    cacheBustedCSV,                                                                  // 1. Direct to HKO (Works if wrapped in Cordova/Capacitor)
-                    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(cacheBustedCSV)}`, // 2. Codetabs (Highly reliable, very permissive)
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(cacheBustedCSV)}`,      // 3. AllOrigins (Good, but sometimes rate-limits)
-                    `https://corsproxy.io/?${encodeURIComponent(cacheBustedCSV)}`,                   // 4. CorsProxy (Frequently goes offline, good backup)
-                    `https://thingproxy.freeboard.io/fetch/${cacheBustedCSV}`                        // 5. ThingProxy (Emergency fallback)
-                ];
-
-                let csvText = null;
-                for (let url of fetchRoutes) {
-                    try {
-                        const windRes = await fetch(url);
-                        if (windRes.ok) {
-                            csvText = await windRes.text();
-                            // Double-check the proxy didn't return an HTML error page or block notice
-                            if (!csvText.toLowerCase().includes('<!doctype html>') && csvText.includes('Date time')) {
-                                break; // We got the valid CSV data! Break out of the loop.
-                            } else {
-                                csvText = null; // Reset if the proxy returned junk HTML
-                            }
-                        }
-                    } catch (e) {
-                        console.warn("Route failed or was blocked:", url);
-                    }
-                }
-
-                if (!csvText) {
-                    throw new Error("All proxy network routes failed. The proxies might be down, or your browser is blocking them.");
+                if (!windRes.ok) throw new Error("Failed to reach custom Cloudflare proxy.");
+                let csvText = await windRes.text();
+                
+                // Validate that we got a CSV and not an HTML error page
+                if (!csvText || csvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid CSV data received from HKO.");
                 }
                 
                 currentStep = "Parsing Wind CSV Rows";
