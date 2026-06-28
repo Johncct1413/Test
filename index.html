@@ -555,6 +555,7 @@
             document.getElementById('envTime').value = now.toTimeString().slice(0, 5);
         }
 
+
         // NEW: Auto-Fetch live weather data from HKO (Cloudflare Pages Optimized)
         async function autoFillWeather() {
             if (!navigator.onLine) {
@@ -607,14 +608,11 @@
                 currentStep = "Fetching Wind CSV Data";
                 const baseCSV = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
                 
-                // THE FIX: Create a unique cache-busted URL FIRST
-                const cacheBustedCSV = `${baseCSV}?_=${Date.now()}`;
-                
-                // Apply the unique cache-busted URL to ALL routes, including the proxies
+                // Because you are on a real server now, we try direct fetch first, then standard proxies
                 const fetchRoutes = [
-                    cacheBustedCSV,                                                              // Route 1: Direct to HKO
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(cacheBustedCSV)}`,  // Route 2: Raw Proxy
-                    `https://corsproxy.io/?${encodeURIComponent(cacheBustedCSV)}`                // Route 3: Backup Proxy
+                    `${baseCSV}?_=${Date.now()}`,                                        // Route 1: Direct to HKO
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(baseCSV)}`, // Route 2: Raw Proxy
+                    `https://corsproxy.io/?${encodeURIComponent(baseCSV)}`               // Route 3: Backup Proxy
                 ];
 
                 let csvText = null;
