@@ -300,6 +300,8 @@
                         <input type="number" id="envWindForce" placeholder="e.g. 3">
                     </div>
                 </div>
+                <div id="weatherWarningContainer" style="display: none; margin-top: 10px; padding: 8px 12px; background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 6px; color: var(--danger); font-size: 12px; font-weight: bold; line-height: 1.4;">
+                </div>
             </div>
 
             <div class="card">
@@ -870,6 +872,38 @@
                     }
                 }
 
+                // ==========================================
+                // --- 6. Fetch Weather Warnings (JSON) ---
+                // ==========================================
+                currentStep = "Fetching Weather Warnings";
+                const warnUrl = 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en';
+                
+                // We don't need the proxy here! HKO allows direct connections for JSON data.
+                const warnRes = await fetch(warnUrl, { signal: weatherAbortController.signal });
+                const warnContainer = document.getElementById('weatherWarningContainer');
+                
+                if (warnRes.ok) {
+                    const warnData = await warnRes.json();
+                    const warningNames = [];
+                    
+                    // The HKO API returns an object of active warnings. We loop through to extract the names.
+                    for (let key in warnData) {
+                        if (warnData[key].name) {
+                            warningNames.push(`🚨 ${warnData[key].name}`);
+                        }
+                    }
+
+                    if (warningNames.length > 0) {
+                        warnContainer.innerHTML = warningNames.join('<br>');
+                        warnContainer.style.display = 'block';
+                    } else {
+                        warnContainer.style.display = 'none'; // Hide if no warnings exist
+                    }
+                } else {
+                    console.warn("Could not fetch warnings.");
+                    warnContainer.style.display = 'none';
+                }
+
                 let noticeMsg = "✅ Weather data auto-filled successfully!\n\n";
                 noticeMsg += `🎯 Target Location: ${currentArea ? currentArea : currentRoute}\n`;
                 noticeMsg += `🌡️ Temp Station Used: ${matchedTempStation || 'Not Found'}\n`;
@@ -967,6 +1001,7 @@
                 document.getElementById('afcdStaff').value = "";
                 document.getElementById('surveyor').value = "";
                 document.getElementById('setupRemarks').value = "";
+                document.getElementById('weatherWarningContainer').style.display = 'none';
                 
                 setNow(); // Reset the date and time back to right now
             }
