@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tern Tracker HK</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#305f4b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Tern Tracker HK">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <style>
+        :root {
+            /* Fieldwork Pro Palette - High Contrast, Low Glare */
+            --primary: #235c45;      
+            --primary-hover: #184030;
+            --primary-light: #e8f2ee; 
+            
+            --bg-color: #f1f4f2;     
+            --card-bg: #ffffff;
+            
+            --text-main: #1a2421;    
+            --text-muted: #5b6b65;   
+            --border-light: #d8e0dc;
+            
+            --danger: #d94436;       
+            --danger-bg: #fdf3f2;
+            
+            --accent-ocean: #0284c7; 
+            --accent-ocean-bg: #f0f9ff;
+            
+            --accent-sand: #d97706;  
+            --accent-sand-bg: #fffbeb;
+            
+            /* COMPACT Sizing & Effects */
+            --radius: 8px; /* Tighter corners */
+            --touch-target: 40px; /* Reduced from 48px to save vertical space */
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 2px 4px -1px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation !important; }
+        
+        html, body {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            overflow: hidden; overscroll-behavior-y: none; margin: 0; padding: 0;
+            background-color: var(--bg-color); color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        h2, h3, h4 { margin-top: 0; color: var(--primary); letter-spacing: -0.5px; }
+        
+        /* Compact, space-saving inputs */
+        input, select, button {
+            width: 100%; min-height: var(--touch-target); padding: 0 10px; font-size: 15px; 
+            border: 1px solid var(--border-light); border-radius: 6px; margin-bottom: 8px; 
+            background: var(--card-bg); color: var(--text-main); transition: all 0.2s ease;
+        }
+        input:focus, select:focus {
+            outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        /* Slimmer Header */
+        header { 
+            background: var(--primary); color: white; padding: 12px; text-align: center; 
+            font-weight: 600; font-size: 16px; z-index: 10; box-shadow: var(--shadow-sm); 
+            letter-spacing: 0.5px;
+        }
+        
+        #main-content { flex: 1; overflow-y: auto; padding: 12px; padding-bottom: 80px; }
+
+        .tab-section { display: none; }
+        .tab-section.active { display: block; animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Compact Bottom Navigation */
+        #bottom-nav {
+            position: fixed; 
+            bottom: 0; 
+            left: 0; /* Snaps the bar perfectly to the left edge of the screen */
+            width: 100%; 
+            display: flex;
+            background: var(--card-bg); 
+            border-top: 1px solid var(--border-light); 
+            padding-bottom: env(safe-area-inset-bottom); 
+            z-index: 100; 
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.03);
+        }
+
+        .nav-btn {
+            flex: 1; background: transparent; border: none; margin: 0; border-radius: 0;
+            padding: 12px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; 
+            border-top: 3px solid transparent; border-bottom: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .nav-btn.active { color: var(--primary); border-top: 3px solid var(--primary); background: var(--primary-light); }
+
+        /* Tighter Cards */
+        .card { 
+            background: var(--card-bg); padding: 12px; border-radius: var(--radius); 
+            box-shadow: var(--shadow-md); margin-bottom: 12px; border: 1px solid var(--border-light); 
+        }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        
+        /* Compact Counters */
+        .counter-group { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+        .counter-btn { 
+            flex: 1; font-size: 20px; font-weight: 500; background: var(--primary-light); 
+            color: var(--primary); border: none; border-radius: 6px; padding: 0; margin: 0; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .counter-btn:active { background: #d1e2d9; }
+        .counter-display { 
+            flex: 1.5; text-align: center; font-size: 18px; font-weight: 700; 
+            border: 2px solid var(--border-light); background: var(--card-bg); margin: 0; border-radius: 6px;
+        }
+
+        /* Professional Button Hierarchy */
+        .btn-primary { background: var(--primary); color: white; font-weight: 600; border: none; border-radius: var(--radius); }
+        .btn-primary:active { background: var(--primary-hover); }
+        
+        .btn-secondary { background: var(--accent-ocean-bg); border: none; color: var(--accent-ocean); font-weight: 600; border-radius: 6px; }
+        .btn-secondary:active { background: #e0f2fe; }
+        
+        .btn-tertiary { background: var(--accent-sand-bg); border: none; color: var(--accent-sand); font-weight: 600; border-radius: 6px; }
+        .btn-tertiary:active { background: #fef3c7; }
+        
+        .btn-danger { background: var(--danger-bg); border: none; color: var(--danger); font-weight: 600; border-radius: 6px; }
+        .btn-danger:active { background: #fee2e2; }
+        
+        /* Refined Sub-rows */
+        .dist-row { background: var(--bg-color); border: 1px solid var(--border-light); padding: 12px; border-radius: 6px; margin-bottom: 8px; position: relative; }
+        .remove-btn { position: absolute; top: 10px; right: 10px; background: var(--danger); color: white; border: none; border-radius: 4px; width: 30px; height: 30px; padding: 0; font-weight: bold; min-height: auto; display: flex; align-items: center; justify-content: center; }
+        
+        #statusBanner, #statusBannerSetup { display: none; padding: 8px; text-align: center; font-weight: 600; font-size: 14px; border-radius: 6px; margin-bottom: 12px; color: white; letter-spacing: 0.5px; }
+
+        /* Compact Typography helpers */
+        label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+        /* --- Automatic Species Numbering --- */
+        #speciesContainer {
+            counter-reset: speciesIndex; /* Starts the counter at 0 */
+        }
+        
+        .species-row {
+            position: relative;
+            padding-left: 44px !important; /* Makes room on the left for the number */
+            overflow: hidden; /* Keeps the background color inside the card's rounded corners */
+        }
+        
+        .species-row::before {
+            counter-increment: speciesIndex; /* Adds +1 for every card */
+            content: counter(speciesIndex); /* Displays the number */
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 32px;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid var(--border-light);
+        }
+        
+        /* --- Beaufort Wind Scale Modal --- */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); z-index: 9999;
+            display: none; align-items: center; justify-content: center;
+            padding: 16px; opacity: 0; transition: opacity 0.2s ease;
+        }
+        .modal-backdrop.show {
+            display: flex; opacity: 1; animation: fadeInModal 0.2s ease-out forwards;
+        }
+        @keyframes fadeInModal { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .modal-card {
+            background: var(--card-bg); width: 100%; max-width: 400px; max-height: 85vh;
+            border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; background: var(--primary); color: white;
+        }
+        .modal-header h3 { margin: 0; color: white; font-size: 16px; }
+        .modal-close-btn {
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            width: 32px; height: 32px; border-radius: 50%; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; margin: 0; min-height: auto; padding: 0;
+        }
+        .modal-body {
+            overflow-y: auto; padding: 0;
+        }
+        .beaufort-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .beaufort-table th {
+            position: sticky; top: 0; background: var(--bg-color);
+            padding: 10px; text-align: left; color: var(--text-muted); border-bottom: 2px solid var(--border-light);
+        }
+        .beaufort-table td {
+            padding: 10px; border-bottom: 1px solid var(--border-light);
+        }
+        .beaufort-table tr:nth-child(even) { background: #fafafa; }
+        .force-col { font-weight: bold; color: var(--primary); text-align: center; width: 50px; 
+        }
+        .beaufort-table tbody tr {
+            cursor: pointer;
+            transition: background 0.1s ease;
+        }
+        .beaufort-table tbody tr:hover {
+            background-color: var(--primary-light) !important;
+        }
+        .beaufort-table tbody tr:active {
+            background-color: #d1e2d9 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <header>Tern Tracker HK</header>
+
+    <div id="main-content">
+        <div id="tab-setup" class="tab-section active">
+            <div id="statusBannerSetup"></div>
+
+           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin:0;">🚢 Route</h2>
+                <button onclick="clearSetupForm()" style="width: auto; padding: 4px 8px; margin: 0; background: transparent; color: #d94f3d; border: 1px solid #d94f3d; font-size: 11px; font-weight: bold; border-radius: 4px;">🔄 Reset Form</button>
+            </div>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label style="font-weight: bold; color: #305f4b;">⏱️ Checklist Time</label>
+                    <button onclick="setNow()" style="width: auto; padding: 4px 12px; margin: 0; background: #e8f3c8; color: #214434; border: 1px solid #d6c8a6; font-size: 12px; font-weight: bold;">🕒 Now</button>
+                </div>
+                <div class="two-col">
+                    <input type="date" id="envDate" required>
+                    <input type="time" id="envTime" required>
+                </div>
+                <div id="routeTagDisplay" style="display: none; background: #e8f3c8; color: #214434; padding: 6px; border-radius: 4px; font-weight: bold; font-size: 15px; text-align: center; margin-top: 6px; border: 1px solid #305f4b;"></div>
+
+                <label style="font-weight: bold; color: #305f4b; margin-top: 10px; display: block;">📍 Location</label>
+                <select id="transectId" onchange="safeLocationChange('route')">
+                    <option value="">-- Select Waters --</option>
+                    <option value="NE">NE</option>
+                    <option value="SE">SE</option>
+                    <option value="S">S</option>
+                </select>
+
+                <select id="subTransect" onchange="safeLocationChange('area')">
+                    <option value="">-- Select Area --</option>
+                </select>
+
+            </div>
+
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0;">🌤️ Weather</h4>
+                    <button id="btn-fetch-weather" onclick="autoFillWeather()" style="width: auto; padding: 4px 10px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: 1px solid var(--accent-ocean); font-size: 11px; font-weight: bold; border-radius: 4px;">☁️ Auto-Fill HKO Temp. & Wind (Beta)</button>
+                </div>
+                <div class="two-col">
+                    <div>
+                        <label>Temperature (°C)</label>
+                        <input type="number" step="0.1" id="envTemp" placeholder="e.g. 28">
+                    </div>
+                    <div>
+                        <label>Weather</label>
+                        <input type="text" id="envWeather" list="weather-options" placeholder="Select or type...">
+                        <datalist id="weather-options">
+                            <option value="Sunny">
+                            <option value="Fine">
+                            <option value="Cloudy">
+                            <option value="Overcast">
+                            <option value="Showers">
+                            <option value="Rainy">
+                            <option value="Drizzles">
+                            <option value="Haze">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label>Wind Direction</label>
+                        <input type="text" id="envWindDir" placeholder="e.g. E">
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3px;">
+                            <label style="margin: 0;">Wind Force</label>
+                            <button type="button" onclick="openWindModal()" style="width: auto; min-height: auto; padding: 2px 6px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: none; font-size: 10px; font-weight: bold; border-radius: 4px; text-transform: uppercase;">ℹ️ Scale</button>
+                        </div>
+                        <input type="number" id="envWindForce" placeholder="e.g. 3">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="two-col" style="margin-bottom: 8px;">
+                    <div>
+                        <label>AFCD Staff</label>
+                        <input type="text" id="afcdStaff">
+                    </div>
+                    <div>
+                        <label>Surveyor</label>
+                        <input type="text" id="surveyor">
+                    </div>
+                </div>
+                <label>Remarks</label>
+                <input type="text" id="setupRemarks" placeholder="e.g. General route notes">
+            </div>
+
+            <button id="startBtn" class="btn-primary" onclick="startChecklist()">Create & Start Checklist ➔</button>
+        </div>
+
+        <div id="tab-entry" class="tab-section">
+            <div id="statusBanner"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <h2 style="margin:0;">🐦 Bird List</h2>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                    <span id="currentRouteDisplay" style="background: #e8f3c8; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #214434;">Setup Required</span>
+                    <button onclick="resetActiveChecklist()" style="width: auto; padding: 4px 8px; margin: 0; background: transparent; color: #d94f3d; border: 1px solid #d94f3d; font-size: 11px; font-weight: bold; border-radius: 4px;">🔄 Erase Entries</button>
+                </div>
+            </div>
+
+ <datalist id="hk-tern">
+<option value="Brown Noddy">
+<option value="Black Noddy">
+<option value="Aleutian Tern">
+<option value="Sooty Tern">
+<option value="Bridled Tern">
+<option value="Little Tern">
+<option value="Gull-billed Tern">
+<option value="Caspian Tern">
+<option value="Whiskered Tern">
+<option value="White-winged Tern">
+<option value="Common Tern">
+<option value="Black-naped Tern">
+<option value="Roseate Tern">
+<option value="Greater Crested Tern">
+<option value="Chinese Crested Tern">
+ </datalist>
+            <datalist id="hk-raptor">
+                <option value="Osprey">
+<option value="Black-winged Kite">
+<option value="Crested Honey Buzzard">
+<option value="Black Baza">
+<option value="Cinereous Vulture">
+<option value="Crested Serpent Eagle">
+<option value="Short-toed Snake Eagle">
+<option value="Mountain Hawk-Eagle">
+<option value="Black Eagle">
+<option value="Greater Spotted Eagle">
+<option value="Booted Eagle">
+<option value="Steppe Eagle">
+<option value="Eastern Imperial Eagle">
+<option value="Bonelli's Eagle">
+<option value="Crested Goshawk">
+<option value="Shikra">
+<option value="Chinese Sparrowhawk">
+<option value="Japanese Sparrowhawk">
+<option value="Besra">
+<option value="Eurasian Sparrowhawk">
+<option value="Eurasian Goshawk">
+<option value="Western Marsh Harrier ">
+<option value="Eastern Marsh Harrier">
+<option value="Hen Harrier">
+<option value="Pied Harrier">
+<option value="Black Kite">
+<option value="Brahminy Kite">
+<option value="White-bellied Sea Eagle">
+<option value="Grey-faced Buzzard">
+<option value="Eastern Buzzard">
+<option value="Eastern Grass Owl">
+<option value="Northern Boobook">
+<option value="Collared Owlet">
+<option value="Asian Barred Owlet">
+<option value="Mountain Scops Owl">
+<option value="Oriental Scops Owl">
+<option value="Collared Scops Owl">
+<option value="Short-eared Owl">
+<option value="Eurasian Eagle-Owl">
+<option value="Brown Fish Owl">
+<option value="Brown Wood Owl">
+<option value="Common Kestrel">
+<option value="Amur Falcon">
+<option value="Eurasian Hobby">
+<option value="Peregrine Falcon">
+            </datalist>
+            
+            <div id="speciesContainer"></div>
+            
+            <button class="btn-tertiary" onclick="addSpeciesRow()" style="margin-bottom: 15px;">➕🐦 Add Another Species</button>
+
+            <div id="disturbanceContainer"></div>
+            <button class="btn-danger" onclick="addDisturbanceRow()" style="margin-bottom: 15px;">⚠️ + Add Disturbance</button>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button id="closeChecklistBtn" class="btn-primary" onclick="closeChecklist()" style="flex: 2; margin: 0; font-size: 16px;">💾 SAVE & CLOSE</button>
+                <button id="discardBtn" class="btn-danger" onclick="discardChanges()" style="flex: 1; margin: 0; background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); font-size: 15px;">✖️ DISCARD CHANGES</button>            
+            </div>
+        </div>
+
+            <div id="tab-data" class="tab-section">
+            <h2>📝 Saved Checklists</h2>
+            
+            <button id="btn-next-area" class="btn-primary" onclick="startNextChecklist()" style="background: #2a8bbb; margin-bottom: 13px; border: 2px solid #1c6488;">⏭️ Start Next Area (Auto-Fill)</button>
+            
+            <div id="checklistContainer"></div>
+
+            <div class="two-col" style="margin-top: 20px;">
+                <button class="btn-primary" onclick="exportExcel()" style="background: #305f4b;">📊 Export to Excel</button>
+                <button class="btn-primary" onclick="backupText()" style="background: #7f3f98;">🛟 Backup Data</button>
+            </div>
+            <button class="btn-primary" onclick="restoreText()" style="margin-top: 10px; width: 100%; background: #0284c7;">🔄 Restore Data</button>
+            <button class="btn-danger" onclick="clearAllData()" style="margin-top: 10px; width: 100%; border: 1px solid #d94f3d;">🗑️ Clear All Data</button>
+            <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 12px; border-top: 1px dashed var(--border-light); padding-top: 15px;">
+                <p style="margin: 0 0 4px 0;"><strong style="color: var(--primary);">TernTracker HK v1.3.0</strong></p>
+                <p style="margin: 0 0 4px 0;">Developed for Fieldwork Data Collection by John Chung</p>
+                <p style="margin: 0 0 12px 0;">For Internal Use Only • Last Updated: Jul 2026</p>
+                <details style="text-align: left; background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
+                    <summary style="font-weight: bold; cursor: pointer; color: var(--primary); outline: none; list-style-position: inside;">📋 View Change Log</summary>
+                    <div style="margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--text-main); border-top: 1px solid var(--border-light); padding-top: 8px;">
+
+                        <strong style="color: var(--accent-ocean);">v1.3.0 (Latest Update)</strong>
+                        <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
+                            <li><strong>Feature:</strong> "Auto-Fill HKO" now in beta version for automatically filling the weather from HKO of the nearest weather station.</li>
+                            <li><strong>Feature:</strong> Weather input upgraded to a dropdown for quick selection (Sunny, Cloudy).</li>
+                            <li><strong>Feature:</strong> Count of each species within each checklist are now shown in the data tab.</li>
+                            <li><strong>Fix:</strong> Not showing the correct date in route tab.</li>
+                        </ul>
+
+                        <strong style="color: var(--accent-ocean);">v1.2.0</strong>
+                        <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
+                            <li><strong>Feature:</strong> Real-time validation for Min/Max Nest Heights with colony-specific thresholds.</li>
+                            <li><strong>Feature:</strong> Top header now dynamically updates to reflect real-time location changes.</li>
+                        </ul>
+                        
+                        <strong style="color: var(--accent-ocean);">v1.1.0</strong>
+                        <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
+                            <li><strong>Feature:</strong> Interactive Beaufort Wind Scale (tap row to auto-fill).</li>
+                            <li><strong>Feature:</strong> Checklists in editing mode are now autosaved whenever texts are typed in. </li>
+                            <li><strong>Fix:</strong> 'Discard Changes' now properly restores previous data.</li>
+                            <li><strong>Fix:</strong> Added validation to prevent saving checklists with missing Route/Area data.</li>
+                        </ul>
+                    </div>
+                </details>
+                
+                <div style="background: var(--danger-bg); color: var(--danger); padding: 10px; border-radius: 6px; text-align: left; font-size: 11px; line-height: 1.4;">
+                    <strong>⚠️ Data Storage Disclaimer:</strong> All survey data is stored locally on this device. Clearing your browser history/cache will permanently delete your records. The developer is not responsible for lost data. Please export your data regularly.
+                </div>
+            </div>
+
+     </div> <div id="bottom-nav">
+        <button class="nav-btn active" onclick="switchTab('tab-setup')" id="nav-tab-setup">🚢Route</button>
+        <button class="nav-btn" onclick="switchTab('tab-entry')" id="nav-tab-entry">🐦Bird</button>
+        <button class="nav-btn" onclick="switchTab('tab-data')" id="nav-tab-data">📝Data</button>
+    </div>
+
+    <div id="windModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Beaufort Wind Scale</h3>
+                <button class="modal-close-btn" onclick="closeWindModal()">X</button>
+            </div>
+            <div class="modal-body">
+                <table class="beaufort-table">
+                    <thead>
+                        <tr>
+                            <th class="force-col">Force</th>
+                            <th>Speed (km/h)</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr onclick="selectWindForce(0)"><td class="force-col">0</td><td>< 2</td><td>Calm</td></tr>
+                        <tr onclick="selectWindForce(1)"><td class="force-col">1</td><td>2 - 6</td><td>Light</td></tr>
+                        <tr onclick="selectWindForce(2)"><td class="force-col">2</td><td>7 - 12</td><td>Light</td></tr>
+                        <tr onclick="selectWindForce(3)"><td class="force-col">3</td><td>13 - 19</td><td>Moderate</td></tr>
+                        <tr onclick="selectWindForce(4)"><td class="force-col">4</td><td>20 - 30</td><td>Moderate</td></tr>
+                        <tr onclick="selectWindForce(5)"><td class="force-col">5</td><td>31 - 40</td><td>Fresh</td></tr>
+                        <tr onclick="selectWindForce(6)"><td class="force-col">6</td><td>41 - 51</td><td>Strong</td></tr>
+                        <tr onclick="selectWindForce(7)"><td class="force-col">7</td><td>52 - 62</td><td>Strong</td></tr>
+                        <tr onclick="selectWindForce(8)"><td class="force-col">8</td><td>63 - 75</td><td>Gale</td></tr>
+                        <tr onclick="selectWindForce(9)"><td class="force-col">9</td><td>76 - 87</td><td>Gale</td></tr>
+                        <tr onclick="selectWindForce(10)"><td class="force-col">10</td><td>88 - 103</td><td>Storm</td></tr>
+                        <tr onclick="selectWindForce(11)"><td class="force-col">11</td><td>104 - 117</td><td>Storm</td></tr>
+                        <tr onclick="selectWindForce(12)"><td class="force-col">12</td><td>≥ 118</td><td>Hurricane</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<div id="restoreModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>🔄 Restore Backup File</h3>
+                <button class="modal-close-btn" onclick="closeRestoreModal()">X</button>
+            </div>
+            <div class="modal-body" style="padding: 16px;">
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Select your saved backup file (`.json`) from your device storage.</p>
+                
+                <input type="file" id="restoreFileInput" accept=".json" style="width: 100%; padding: 10px; border: 1px dashed var(--primary); border-radius: 6px; box-sizing: border-box; background: #fafafa; margin-bottom: 15px;">
+                
+                <button class="btn-primary" onclick="processRestore()" style="width: 100%; font-size: 16px;">Restore Data File</button>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <script>
+        const STORAGE_KEY = 'seabird-live-v1';
+        let checklists = [];
+        let activeChecklistId = null;
+        let originalChecklistState = null;
+        let weatherAbortController = null; 
+
+        const transectData = {
+            "NE": ["Ma Liu Shui Pier - Che Lei Pai", "Che Lei Pai", "Che Lei Pai - Hoi Ha", "Hoi Ha", "Hoi Ha - Chap Mo Chau", "Chap Mo Chau", "Chap Mo Chau - Yan Chau", "Yan Chau", "Yan Chau - Wong Nai Chau", "Wong Nai Chau", "Wong Nai Chau - Round Island", "Round Island (Pak Sha Chau)", "Round Island - Port Island", "Port Island", "Port Island - Kung Chau", "Kung Chau", "Kung Chau - Shek Ngau Chau", "Shek Ngau Chau", "Shek Ngau Chau - Tap Mun", "Tap Mun", "Tap Mun - Wong Shek Pier", "Wong Shek Pier"],
+            "SE": ["Aberdeen Pier - Lo Chau Pak Pai", "Lo Chau Pak Pai", "Lo Chau Pak Pai - Waglan Island", "Waglan Island", "Waglan Island - East Ninepin", "Tuen Chau Tsai/Kak Shan Chau (East Ninepin)", "Lung Shuen Pai (East Ninepin)", "Shue Long Chau (East Ninepin)", "East Ninepin - Kong Tau Pai", "Kong Tau Pai","Kong Tau Pai - Sai Kung Pier", "Sai Kung Pier"],
+            "S": ["East Lamma Channel, Area between Aberdeen and South Lamma", "South Lamma - Soko Islands", "Tau Lo Chau (Soko Islands)", "Yuen Kong Chau (Soko Islands)", "Tai A Chau (Soko Islands)", "Ma Chau (Soko Islands)", "Yuen Chau (Soko Islands)", "Shek Chau (Soko Islands)", "Wan Hau Chau (Soko Islands)", "Siu A Chau (Soko Islands)", "Cheung Muk Tau (Soko Islands)", "Ko Pai (Soko Islands)", "Adamasta Channel and area near Shek Kwu Chau and Cheung Chau", "West Lamma Channel, between Cheung Chau, Hei Ling Chau and Peng Chau", "Peng Chau - Tsim Sha Tsui Pier", "Tsim Sha Tsui Pier"]
+        };
+
+        const colonyMaxHeights = {
+            "Che Lei Pai": 10,
+            "Wong Nai Chau": 23,
+            "Round Island (Pak Sha Chau)": 64,
+            "Port Island": 131,
+            "Shek Ngau Chau": 24,
+            "Kung Chau": 37,
+            "Tau Lo Chau (Soko Islands)": 39,
+            "Yuen Kong Chau (Soko Islands)": 32,
+            "Tai A Chau (Soko Islands)": 154, 
+            "Ma Chau (Soko Islands)": 37,
+            "Yuen Chau (Soko Islands)": 20,
+            "Shek Chau (Soko Islands)": 17,
+            "Wan Hau Chau (Soko Islands)": 12,
+            "Siu A Chau (Soko Islands)": 119, 
+            "Cheung Muk Tau (Soko Islands)": 40,
+            "Ko Pai (Soko Islands)": 17,
+            "Lo Chau Pak Pai": 15,
+            "Waglan Island": 35,
+            "Tuen Chau Tsai/Kak Shan Chau (East Ninepin)": 62,
+            "Shue Long Chau (East Ninepin)": 24,
+            "Kong Tau Pai": 19
+        };
+
+        window.onload = () => {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try { checklists = JSON.parse(saved); } catch(e) { checklists = []; }
+            }
+            setNow(); 
+            renderChecklists();
+
+            // NEW: Lock the Bird tab initially since no checklist is active
+            const birdTabBtn = document.getElementById('nav-tab-entry');
+            birdTabBtn.style.opacity = '0.3';
+            birdTabBtn.style.pointerEvents = 'none';
+        };
+
+       function setNow() {
+            const now = new Date();
+            
+            // 1. Get the exact LOCAL year, month, and day
+            const year = now.getFullYear();
+            // Months are 0-indexed in JS, so we add 1. padStart ensures "7" becomes "07"
+            const month = String(now.getMonth() + 1).padStart(2, '0'); 
+            const day = String(now.getDate()).padStart(2, '0');
+            
+            // 2. Get the exact LOCAL hours and minutes
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // 3. Apply them to the form
+            document.getElementById('envDate').value = `${year}-${month}-${day}`;
+            document.getElementById('envTime').value = `${hours}:${minutes}`;
+        }
+
+        // NEW: Auto-Fetch live weather data from HKO (Google Apps Script Proxy - Cancellable)
+        async function autoFillWeather() {
+            const btn = document.getElementById('btn-fetch-weather');
+
+            // --- 1. THE CANCEL LISTENER ---
+            // If the controller already exists, a fetch is currently running. Kill it!
+            if (weatherAbortController) {
+                weatherAbortController.abort(); 
+                return; 
+            }
+
+            if (!navigator.onLine) {
+                alert("⚠️ No internet connection. Cannot fetch live HKO data.");
+                return;
+            }
+
+            const currentRoute = document.getElementById('transectId').value;
+            const currentArea = document.getElementById('subTransect').value;
+            
+            // THE FIX: Now checks for BOTH Route and Area before allowing the fetch
+            if (!currentRoute || !currentArea) {
+                alert("⚠️ Please select both 'Waters' and 'Area' first to fetch the correct local station data.");
+                
+                // If they tapped the Cancel button, reset the controller so it doesn't get stuck
+                if (weatherAbortController) {
+                    weatherAbortController = null;
+                }
+                return;
+            }
+
+            // ==========================================
+            // 1. SMART STATION SELECTOR (Preserved your exact lists!)
+            // ==========================================
+            const routeDefaults = {
+                'NE': ['Tap Mun', 'Pak Tam Chung', 'Sai Kung'],
+                'S':  ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'],
+                'SE': ['Waglan Island', 'Kau Sai Chau']
+            };
+
+            const areaOverrides = {
+                "Ma Liu Shui Pier - Che Lei Pai": ["Sha Tin", "Tai Po", "Tap Mun"],
+                "Che Lei Pai": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Che Lei Pai - Hoi Ha": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Hoi Ha": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Hoi Ha - Chap Mo Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Chap Mo Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Chap Mo Chau - Yan Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Yan Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Yan Chau - Wong Nai Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Wong Nai Chau": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Wong Nai Chau - Round Island": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Round Island (Pak Sha Chau)": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Round Island - Port Island": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
+                "Port Island" : ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Port Island - Kung Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Kung Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Kung Chau - Shek Ngau Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Shek Ngau Chau": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Shek Ngau Chau - Tap Mun": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Tap Mun": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Tap Mun - Wong Shek Pier": ["Tap Mun", "Pak Tam Chung", "Sai Kung"], 
+                "Wong Shek Pier": ["Tap Mun", "Pak Tam Chung", "Sai Kung"],
+                "Aberdeen Pier - Lo Chau Pak Pai": ["Wong Chuk Hang", "Stanley"], 
+                "Lo Chau Pak Pai": ["Waglan Island", "Stanley"], 
+                "Lo Chau Pak Pai - Waglan Island": ["Waglan Island", "Stanley"],
+                "Waglan Island": ["Waglan Island", "Stanley"],
+                "Waglan Island - East Ninepin": ["Waglan Island", "Stanley"],
+                "Tuen Chau Tsai/Kak Shan Chau (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "Lung Shuen Pai (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "Shue Long Chau (East Ninepin)": ["Clear Water Bay", "Waglan Island"], 
+                "East Ninepin - Kong Tau Pai": ["Clear Water Bay", "Waglan Island"], 
+                "Kong Tau Pai": ["Kau Sai Chau", "Sai Kung"],
+                "Kong Tau Pai - Sai Kung Pier": ["Kau Sai Chau", "Sai Kung"], 
+                "Sai Kung Pier": ["Sai Kung", "Kau Sai Chau"],
+                "East Lamma Channel, Area between Aberdeen and South Lamma" : ["Lamma Island", "Cheung Chau"], 
+                "South Lamma - Soko Islands": ["Lamma Island", "Cheung Chau", "Cheung Chau Beach"], 
+                "Tau Lo Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Yuen Kong Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Tai A Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Ma Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Yuen Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Shek Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Wan Hau Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Siu A Chau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Cheung Muk Tau (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Ko Pai (Soko Islands)": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Adamasta Channel and area near Shek Kwu Chau and Cheung Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "West Lamma Channel, between Cheung Chau, Hei Ling Chau and Peng Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
+                "Peng Chau - Tsim Sha Tsui Pier": ["Peng Chau", "Cheung Chau", "Cheung Chau Beach"], 
+                "Tsim Sha Tsui Pier": ["King's Park", "HK Observatory", "Star Ferry"]
+            };
+
+            let targetStations = areaOverrides[currentArea] || routeDefaults[currentRoute] || [];
+
+            // --- 2. UI PREPARATION: Change button to a red Cancel button ---
+            const originalText = "☁️ Auto-Fill HKO Temp. & Wind (Beta)";
+            btn.innerHTML = "❌ Cancel Fetch";
+            btn.style.background = "var(--danger-bg)";
+            btn.style.color = "var(--danger)";
+            btn.style.border = "1px solid var(--danger)";
+
+            // LOCK THE BOTTOM NAVIGATION
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(nav => {
+                nav.style.pointerEvents = 'none';
+                nav.style.opacity = '0.5'; 
+            });
+            // --- NEW: LOCK THE MAIN START BUTTON ---
+            const mainStartBtn = document.getElementById('startBtn');
+            if (mainStartBtn) {
+                mainStartBtn.disabled = true;
+                mainStartBtn.style.opacity = '0.5';
+            }
+            // --- NEW: LOCK THE WEATHER INPUTS ---
+            const weatherInputs = ['envTemp', 'envWindDir', 'envWindForce'];
+            weatherInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    el.style.opacity = '0.5';
+                }
+            });
+
+            let currentStep = "Initiating fetch sequence";
+            const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
+            const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            // --- 3. THE UNIFIED TIMEOUT & CONTROLLER ---
+            weatherAbortController = new AbortController();
+            const FETCH_TIMEOUT_MS = 15000; 
+            const weatherTimeout = setTimeout(() => {
+                if (weatherAbortController) weatherAbortController.abort();
+            }, FETCH_TIMEOUT_MS);
+
+            try {
+                // ==========================================
+                // --- 4. Fetch Temperature Data (CSV) ---
+                // ==========================================
+                currentStep = "Fetching Temperature CSV Data";
+                const hkoTempCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv';
+                
+                const fetchTempUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoTempCsv)}&_=${Date.now()}`;
+                // Pass the unified signal
+                const tempRes = await fetch(fetchTempUrl, { signal: weatherAbortController.signal });
+                
+                if (!tempRes.ok) throw new Error("Failed to connect to Google Proxy for Temperature.");
+                let tempCsvText = await tempRes.text();
+                
+                if (!tempCsvText || tempCsvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid Temperature CSV data received.");
+                }
+
+                currentStep = "Parsing Temperature CSV Rows";
+                const tempLines = tempCsvText.trim().split('\n');
+                const tempPrefs = [...targetStations, "King's Park", "Sha Tin", "Hong Kong Observatory"]; 
+                let tempVal = null;
+                let matchedTempStation = null;
+
+                for (let target of tempPrefs) {
+                    const cleanTarget = normalize(target);
+                    for (let i = 1; i < tempLines.length; i++) {
+                        const cols = tempLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
+                        
+                        if (cols.length >= 3 && normalize(cols[1]).includes(cleanTarget)) {
+                            const rawTempVal = cols[2].trim().toUpperCase();
+                            
+                            // THE FIX: Only accept the data if it is NOT an N/A or blank
+                            if (rawTempVal !== "N/A" && rawTempVal !== "NA" && rawTempVal !== "") {
+                                const parsedVal = parseFloat(cols[2]);
+                                if (!isNaN(parsedVal)) {
+                                    tempVal = parsedVal;
+                                    matchedTempStation = target;
+                                    break;
+                                }
+                            }
+                            // If it IS "N/A", the loop simply ignores it and keeps hunting!
+                        }
+                    }
+                    if (tempVal !== null) break; 
+                }
+
+               if (tempVal !== null) {
+                    document.getElementById('envTemp').value = tempVal;
+                } else {
+                    console.warn("Temperature not found. Attempted:", tempPrefs.join(', '));
+                }
+
+                // ==========================================
+                // --- 5. Fetch Wind Data (CSV) ---
+                // ==========================================
+                currentStep = "Fetching Wind CSV Data";
+                const hkoWindCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
+                
+                const fetchWindUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoWindCsv)}&_=${Date.now()}`;
+                const windRes = await fetch(fetchWindUrl, { signal: weatherAbortController.signal });
+                
+                if (!windRes.ok) throw new Error("Failed to connect to Google Proxy for Wind.");
+                let windCsvText = await windRes.text();
+
+                if (!windCsvText || windCsvText.toLowerCase().includes('<!doctype html>')) {
+                    throw new Error("Invalid Wind CSV data received.");
+                }
+
+                currentStep = "Parsing Wind CSV Rows";
+                const windLines = windCsvText.trim().split('\n');
+                
+                // THE FIX: Track Direction and Speed completely separately!
+                let finalWindDir = null;
+                let finalWindSpeed = null;
+                let matchedDirStation = null;
+                let matchedSpeedStation = null;
+
+                for (let target of targetStations) {
+                    const cleanTarget = normalize(target);
+                    for (let i = 1; i < windLines.length; i++) {
+                        const cols = windLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
+                        
+                        if (cols.length >= 4 && normalize(cols[1]).includes(cleanTarget)) {
+                            const rawDir = cols[2].trim();
+                            const rawSpeedData = cols[3].trim().toUpperCase(); 
+                            
+                            const isDirBad = (rawDir.toUpperCase() === "N/A" || rawDir.toUpperCase() === "NA" || rawDir === "");
+                            const isSpeedBad = (rawSpeedData === "N/A" || rawSpeedData === "NA" || rawSpeedData === "");
+
+                            // If direction is good AND we don't have one yet, lock it in!
+                            if (!isDirBad && finalWindDir === null) {
+                                finalWindDir = rawDir;
+                                matchedDirStation = target;
+                            }
+
+                            // If speed is good AND we don't have one yet, lock it in!
+                            if (!isSpeedBad && finalWindSpeed === null) {
+                                finalWindSpeed = rawSpeedData;
+                                matchedSpeedStation = target;
+                            }
+                            
+                            break; // Stop scanning this CSV row once we find the target station
+                        }
+                    }
+                    // If we successfully found BOTH pieces of data, we can stop checking backup stations!
+                    if (finalWindDir !== null && finalWindSpeed !== null) break; 
+                }
+
+                if (finalWindDir !== null || finalWindSpeed !== null) {
+                    currentStep = "Applying Wind Data to Form";
+
+                    const dirMap = {
+                        "North": "N", "Northeast": "NE", "East": "E", "Southeast": "SE",
+                        "South": "S", "Southwest": "SW", "West": "W", "Northwest": "NW",
+                        "Variable": "VRB", "Calm": "Calm"
+                    };
+                    
+                    // Apply Direction (if we found one)
+                    if (finalWindDir) {
+                        document.getElementById('envWindDir').value = dirMap[finalWindDir] || finalWindDir;
+                    }
+
+                    // Apply Speed (if we found one)
+                    if (finalWindSpeed === "N/A" || finalWindSpeed === "NA") {
+                        // If the backup stations also failed and returned N/A, leave the box blank!
+                        document.getElementById('envWindForce').value = "";
+                    } else if (finalWindSpeed === "CALM") {
+                        document.getElementById('envWindForce').value = 0;
+                    } else if (finalWindSpeed) {
+                        const speed = parseInt(finalWindSpeed.replace(/[^0-9]/g, ''));
+                        if (!isNaN(speed)) {
+                            let beaufort = 0;
+                            if (speed >= 2 && speed <= 6) beaufort = 1;
+                            else if (speed >= 7 && speed <= 12) beaufort = 2;
+                            else if (speed >= 13 && speed <= 19) beaufort = 3;
+                            else if (speed >= 20 && speed <= 30) beaufort = 4;
+                            else if (speed >= 31 && speed <= 40) beaufort = 5;
+                            else if (speed >= 41 && speed <= 51) beaufort = 6;
+                            else if (speed >= 52 && speed <= 62) beaufort = 7;
+                            else if (speed >= 63 && speed <= 75) beaufort = 8;
+                            else if (speed >= 76 && speed <= 87) beaufort = 9;
+                            else if (speed >= 88 && speed <= 103) beaufort = 10;
+                            else if (speed >= 104 && speed <= 117) beaufort = 11;
+                            else if (speed >= 118) beaufort = 12;
+                            document.getElementById('envWindForce').value = beaufort;
+                        }
+                    }
+                }
+
+                let noticeMsg = "✅ Weather data auto-filled successfully!\n\n";
+                noticeMsg += `🎯 Target Location: ${currentArea ? currentArea : currentRoute}\n`;
+                noticeMsg += `🌡️ Temp Station Used: ${matchedTempStation || 'Not Found'}\n`;
+                
+                // Show if the wind sensors were split across two different stations!
+                if (matchedDirStation === matchedSpeedStation) {
+                    noticeMsg += `💨 Wind Station Used: ${matchedDirStation || 'Not Found'}`;
+                } else {
+                    noticeMsg += `💨 Wind Stations Used:\n   - Dir: ${matchedDirStation || 'Not Found'}\n   - Speed: ${matchedSpeedStation || 'Not Found'}`;
+                }
+
+                if ((matchedDirStation && matchedDirStation !== targetStations[0]) || 
+                    (matchedSpeedStation && matchedSpeedStation !== targetStations[0]) || 
+                    (matchedTempStation && matchedTempStation !== targetStations[0])) {
+                    noticeMsg += `\n\nℹ️ Note: Primary station offline or incomplete. Backup station data was used.`;
+                }
+
+                alert(noticeMsg);
+                if (activeChecklistId) quickSave();
+
+            } catch (err) {
+                console.error("HKO Fetch Error:", err);
+                
+                if (err.name === 'AbortError') {
+                    // This alert covers BOTH the 10-second timeout and the manual cancel
+                    alert(`⚠️ Fetch Canceled or Timed Out.\nIf you canceled it manually, you can now switch tabs. Otherwise, your cell signal might be too weak.`);
+                } else {
+                    alert(`❌ Fetch Failed at step: [${currentStep}]\nDetails: ${err.message}`);
+                }
+                
+            } finally {
+                // --- 6. CLEAN UP: Reset the UI back to normal ---
+                clearTimeout(weatherTimeout);
+                weatherAbortController = null; // Clear it so we can run again later!
+
+                btn.innerHTML = originalText;
+                btn.style.background = "var(--accent-ocean-bg)";
+                btn.style.color = "var(--accent-ocean)";
+                btn.style.border = "1px solid var(--accent-ocean)";
+
+                // UNLOCK NAVIGATION
+                navButtons.forEach(nav => {
+                    if (nav.id !== 'nav-tab-entry' || activeChecklistId) {
+                        nav.style.pointerEvents = 'auto';
+                        nav.style.opacity = '1';
+                    } else {
+                        nav.style.opacity = '0.3'; 
+                    }
+                });
+                if (mainStartBtn) {
+                    mainStartBtn.disabled = false;
+                    mainStartBtn.style.opacity = '1';
+                }
+                const weatherInputs = ['envTemp', 'envWeather', 'envWindDir', 'envWindForce'];
+                weatherInputs.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.disabled = false;
+                        el.style.opacity = '1';
+                    }
+                });
+            } 
+        } 
+
+        // --- Beaufort Modal Logic ---
+        function openWindModal() {
+            document.getElementById('windModal').classList.add('show');
+        }
+
+        function closeWindModal() {
+            document.getElementById('windModal').classList.remove('show');
+        }
+
+        function selectWindForce(forceLevel) {
+            document.getElementById('envWindForce').value = forceLevel;
+            closeWindModal();
+        }
+
+        // UX Bonus: Close modal if user taps on the dark background outside the card
+        document.getElementById('windModal').addEventListener('click', function(e) {
+            if (e.target === this) closeWindModal();
+        });
+
+        // NEW: Function to clear the Route setup tab
+        function clearSetupForm() {
+            // Added a quick confirmation so they don't accidentally delete their typing
+            if(confirm("Are you sure you want to clear the Route and Weather forms?")) {
+                document.getElementById('transectId').value = "";
+                updateSubTransects(); // This automatically clears the area dropdown and hides the tag!
+                
+                document.getElementById('envTemp').value = "";
+                document.getElementById('envWeather').value = "";
+                document.getElementById('envWindDir').value = "";
+                document.getElementById('envWindForce').value = "";
+                document.getElementById('afcdStaff').value = "";
+                document.getElementById('surveyor').value = "";
+                document.getElementById('setupRemarks').value = "";
+                
+                setNow(); // Reset the date and time back to right now
+            }
+        }
+
+        // NEW: Safety check to prevent accidental location changes on saved records
+        function safeLocationChange(dropdownType) {
+            // We know the user is editing an old record if originalChecklistState is NOT null
+            const isEditing = (activeChecklistId && originalChecklistState !== null);
+            
+            if (isEditing) {
+                // Find the "true" saved location from our data array
+                const chk = checklists.find(c => c.id === activeChecklistId);
+                
+                // Trigger the browser's native popup
+                const confirmed = confirm("⚠️ Are you sure you want to change the location of this saved record? Doing so will assign all recorded birds to a different area.");
+                
+                if (!confirmed) {
+                    // If they click Cancel, instantly snap the dropdowns back to their saved values
+                    if (dropdownType === 'route') {
+                        document.getElementById('transectId').value = chk.transectId;
+                    } else {
+                        document.getElementById('subTransect').value = chk.subTransect;
+                    }
+                    return; // Abort the script so the location doesn't actually change
+                }
+            }
+
+            // If it's a completely new checklist, OR if they clicked "OK" to the warning, proceed!
+            if (dropdownType === 'route') {
+                updateSubTransects(); 
+            } else {
+                displayRouteTag();
+            }
+        }
+        
+       function updateSubTransects(preselect = "") {
+            const line = document.getElementById('transectId').value;
+            const subSelect = document.getElementById('subTransect');
+            subSelect.innerHTML = '<option value="">-- Select Area --</option>';
+            
+            if (transectData[line]) {
+                transectData[line].forEach(seg => {
+                    const isSelected = seg === preselect ? "selected" : "";
+                    subSelect.innerHTML += `<option value="${seg}" ${isSelected}>${seg}</option>`;
+                });
+            }
+            displayRouteTag(); // Trigger the tag update immediately
+        }
+
+        function displayRouteTag() {
+            const route = document.getElementById('transectId').value;
+            const area = document.getElementById('subTransect').value;
+            const displayDiv = document.getElementById('routeTagDisplay');
+
+            if (!route || !area || !transectData[route]) {
+                displayDiv.style.display = 'none'; 
+            } else {
+                const index = transectData[route].indexOf(area);
+                if (index !== -1) {
+                    const tag = route + String(index + 1).padStart(2, '0');
+                    displayDiv.innerHTML = ` Route: <span style="color: #7f3f98;">${tag}</span>`;
+                    displayDiv.style.display = 'block';
+                } else {
+                    displayDiv.style.display = 'none';
+                }
+            }
+            
+            // Re-check all existing bird records for nest height warnings
+            revalidateAllNestHeights();
+
+            // NEW: Instantly update the Header and Bird Tab if a checklist is active
+            if (activeChecklistId) {
+                const mainHeader = document.querySelector('header');
+                
+                // Check if we are currently in "Recording" or "Editing" mode
+                const isEditing = mainHeader.innerHTML.includes('EDITING');
+                const prefix = isEditing ? '✏️ EDITING' : '🟢 RECORDING';
+                
+                // Push the new text to the top header
+                mainHeader.innerHTML = `${prefix}: ${route || 'Route'} - ${area || 'Area'}`;
+                
+                // Push the new text to the Bird tab's mini route display
+                document.getElementById('currentRouteDisplay').innerText = `${route || '?'} / ${area || '?'}`;
+            }
+        }
+
+        function switchTab(tabId) {
+            if (activeChecklistId) quickSave();
+
+            if (tabId === 'tab-setup' && !activeChecklistId) {
+                setNow();
+            }
+
+            document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+
+            if (tabId === 'tab-entry' && activeChecklistId) {
+                const line = document.getElementById('transectId').value || '?';
+                const seg = document.getElementById('subTransect').value || '?';
+                document.getElementById('currentRouteDisplay').innerText = `${line} / ${seg}`;
+            }
+
+            // THE FIX: Scroll the actual scrollable container to the top
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        function startChecklist() {
+            if (activeChecklistId) {
+                quickSave(); 
+                switchTab('tab-entry');
+                return;
+            }
+
+            const transect = document.getElementById('transectId').value;
+            if(!transect) {
+                alert("Please select a Transect Line to start.");
+                return;
+            }
+
+            const btn = document.getElementById('startBtn');
+            btn.innerText = "⏳ Creating Checklist...";
+            btn.disabled = true;
+
+           const newChk = {
+                id: 'chk-' + Date.now(),
+                date: document.getElementById('envDate').value,
+                time: document.getElementById('envTime').value,
+                transectId: transect,
+                subTransect: document.getElementById('subTransect').value,
+                temp: document.getElementById('envTemp').value,
+                weather: document.getElementById('envWeather').value,
+                windDir: document.getElementById('envWindDir').value,
+                windForce: document.getElementById('envWindForce').value,
+                afcdStaff: document.getElementById('afcdStaff').value.trim(),
+                surveyor: document.getElementById('surveyor').value.trim(),
+                setupRemarks: document.getElementById('setupRemarks').value.trim(),
+                birds: [
+                    { species: 'Black-naped Tern', count: 0, remarks: '', nests: '', juvs: '', minH: '', maxH: '' },
+                    { species: 'Bridled Tern', count: 0, remarks: '', nests: '', juvs: '', minH: '', maxH: '' },
+                    { species: 'Roseate Tern', count: 0, remarks: '', nests: '', juvs: '', minH: '', maxH: '' }
+                ],
+                disturbances: [],
+                lat: null, lng: null
+            };
+
+            // UX UPGRADE: Bypassing the GPS request completely.
+            // This prevents permission popups, saves battery, and creates the checklist instantly.
+            finalizeStart(newChk, null, null, btn);
+        }
+        
+        function startNextChecklist() {
+            if (activeChecklistId) {
+                alert("Please save and close your current active checklist first.");
+                return;
+            }
+            if (checklists.length === 0) {
+                alert("No previous checklists found. Please start your first area manually in the Route tab.");
+                switchTab('tab-setup');
+                return;
+            }
+
+            // 1. Get the most recently saved checklist (index 0)
+            const lastChk = checklists[0]; 
+            const route = lastChk.transectId;
+            const currentArea = lastChk.subTransect;
+
+            if (!route || !currentArea || !transectData[route]) {
+                alert("Could not determine the next area. Please start manually.");
+                switchTab('tab-setup');
+                return;
+            }
+
+            // 2. Find where we are in the route array
+            const currentIndex = transectData[route].indexOf(currentArea);
+            
+            if (currentIndex === -1 || currentIndex >= transectData[route].length - 1) {
+                alert(`🏁 You have reached the end of route ${route}! Please select a new route manually.`);
+                switchTab('tab-setup');
+                return;
+            }
+
+            // 3. Calculate the exact next area
+            const nextArea = transectData[route][currentIndex + 1];
+
+            // 4. Pre-fill the Setup form dynamically
+            setNow(); // Update to the current time
+            document.getElementById('transectId').value = route;
+            updateSubTransects(nextArea); // Updates the dropdown
+            document.getElementById('subTransect').value = nextArea; // Locks in the value
+
+            // UX Bonus: Automatically copy over the weather and remarks from the previous area!
+            document.getElementById('envTemp').value = lastChk.temp || '';
+            document.getElementById('envWeather').value = lastChk.weather || '';
+            document.getElementById('envWindDir').value = lastChk.windDir || '';
+            document.getElementById('envWindForce').value = lastChk.windForce || '';
+            document.getElementById('afcdStaff').value = lastChk.afcdStaff || '';   
+            document.getElementById('surveyor').value = lastChk.surveyor || '';  
+            document.getElementById('setupRemarks').value = lastChk.setupRemarks || '';
+
+            // 5. Switch to the Route tab for review
+            switchTab('tab-setup');
+
+            //autoFillWeather();
+        }
+
+        function finalizeStart(newChk, lat, lng, btn) {
+            if (lat && lng) {
+                newChk.lat = parseFloat(lat.toFixed(6));
+                newChk.lng = parseFloat(lng.toFixed(6));
+            }
+            
+            checklists.unshift(newChk); 
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+            renderChecklists();
+
+            btn.disabled = false;
+            loadChecklistIntoTab2(newChk.id, true);
+        }
+
+        function quickSave() {
+            if (!activeChecklistId) return;
+            const idx = checklists.findIndex(c => c.id === activeChecklistId);
+            if (idx === -1) return;
+
+            const chk = checklists[idx];
+
+            chk.date = document.getElementById('envDate').value;
+            chk.time = document.getElementById('envTime').value;
+            chk.transectId = document.getElementById('transectId').value;
+            chk.subTransect = document.getElementById('subTransect').value;
+            chk.temp = document.getElementById('envTemp').value;
+            chk.weather = document.getElementById('envWeather').value;
+            chk.windDir = document.getElementById('envWindDir').value;
+            chk.windForce = document.getElementById('envWindForce').value;
+            chk.afcdStaff = document.getElementById('afcdStaff').value.trim();
+            chk.surveyor = document.getElementById('surveyor').value.trim();
+            chk.setupRemarks = document.getElementById('setupRemarks').value.trim(); // NEW
+
+            const validBirds = [];
+            document.querySelectorAll('.species-row').forEach(row => {
+                const sp = row.querySelector('.sp-name').value.trim();
+                const qty = parseInt(row.querySelector('.sp-qty').value);
+                
+                if (sp && !isNaN(qty) && qty >= 0) { 
+                    validBirds.push({
+                        species: sp, count: qty,
+                        remarks: row.querySelector('.sp-rem').value.trim(),
+                        nests: row.querySelector('.br-nests').value, juvs: row.querySelector('.br-juvs').value,
+                        minH: row.querySelector('.br-min').value, maxH: row.querySelector('.br-max').value
+                    });
+                }
+            });
+            chk.birds = validBirds;
+
+            const validDists = [];
+            document.querySelectorAll('.dist-row').forEach(row => {
+                const type = row.querySelector('.dist-type').value;
+                if (!type) return;
+
+                let distObj = { type: type };
+                if (type === 'Raptor') {
+                    distObj.rSp = row.querySelector('.d-sp')?.value || '';
+                    distObj.rNum = row.querySelector('.d-num')?.value || '';
+                    distObj.rBeh = row.querySelector('.d-beh')?.value || '';
+                } else if (type === 'Boat') {
+                    distObj.bType = row.querySelector('.d-btype')?.value || '';
+                    distObj.bReg = row.querySelector('.d-reg')?.value || '';
+                    distObj.bPass = row.querySelector('.d-pass')?.value || '';
+                    distObj.bAct = row.querySelector('.d-act')?.value || '';
+                    distObj.bRem = row.querySelector('.d-rem')?.value || '';
+                } else if (type === 'Visitor') {
+                    distObj.vNum = row.querySelector('.d-vnum')?.value || '';
+                    distObj.vAct = row.querySelector('.d-vact')?.value || '';
+                    distObj.vRem = row.querySelector('.d-vrem')?.value || '';
+                }
+                validDists.push(distObj);
+            });
+            chk.disturbances = validDists;
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+            renderChecklists(); 
+        }
+
+        function resetActiveChecklist() {
+            if (confirm("Are you sure you want to erase all species and disturbances in this active checklist? This cannot be undone.")) {
+                document.getElementById('speciesContainer').innerHTML = '';
+                document.getElementById('disturbanceContainer').innerHTML = '';
+                
+                addSpeciesRow({ species: 'Black-naped Tern', count: 0 });
+                addSpeciesRow({ species: 'Bridled Tern', count: 0 });
+                addSpeciesRow({ species: 'Roseate Tern', count: 0 });
+                
+                if (activeChecklistId) quickSave(); 
+                alert("Checklist entries have been wiped clean.");
+            }
+        }
+        
+       function closeChecklist() {
+
+        const currentTransect = document.getElementById('transectId').value;
+        const currentArea = document.getElementById('subTransect').value;
+        if (!currentTransect || !currentArea) {
+        alert("⚠️ Missing Route Data: Please select both 'Waters' and 'Area' before saving.");
+        switchTab('tab-setup'); // Force the user back to the Route tab
+        return; // Abort the closing process immediately
+        }
+            quickSave(); 
+            activeChecklistId = null;
+            originalChecklistState = null;
+            
+            document.getElementById('startBtn').innerText = "Create & Start Checklist ➔";
+
+            // --- UX UPGRADE: Restore UI to Normal ---
+            document.getElementById('statusBanner').style.display = 'none';
+            document.getElementById('statusBannerSetup').style.display = 'none';
+            
+            // Reset main header
+            const mainHeader = document.querySelector('header');
+            mainHeader.style.background = 'var(--primary)'; // Updated for new color theme
+            mainHeader.innerHTML = 'Tern Tracker HK';
+
+            // Unlock the Data tab
+            const dataTabBtn = document.getElementById('nav-tab-data');
+            dataTabBtn.style.opacity = '1';
+            dataTabBtn.style.pointerEvents = 'auto'; 
+
+            // LOCK the Bird tab since no checklist is active anymore
+            const birdTabBtn = document.getElementById('nav-tab-entry');
+            birdTabBtn.style.opacity = '0.3';
+            birdTabBtn.style.pointerEvents = 'none';
+            // ----------------------------------------
+            
+            document.getElementById('speciesContainer').innerHTML = '';
+            document.getElementById('disturbanceContainer').innerHTML = '';
+            document.getElementById('transectId').value = "";
+            document.getElementById('subTransect').innerHTML = '<option value="">-- Select Area --</option>';
+            document.getElementById('routeTagDisplay').style.display = 'none'; 
+            document.getElementById('envTemp').value = "";
+            document.getElementById('envWeather').value = "";
+            document.getElementById('envWindDir').value = "";
+            document.getElementById('envWindForce').value = "";
+            document.getElementById('setupRemarks').value = ""; 
+            document.getElementById('afcdStaff').value = "";
+            document.getElementById('surveyor').value = "";
+            
+            setNow(); 
+            
+            switchTab('tab-data'); 
+        }
+
+ function discardChanges() {
+    if (confirm("Discard unsaved changes? This will revert the checklist to its last saved state.")) {
+        
+        // NEW: Restore from the snapshot if one exists
+        if (originalChecklistState && activeChecklistId) {
+            const idx = checklists.findIndex(c => c.id === activeChecklistId);
+            if (idx !== -1) {
+                // Parse the snapshot string back into an object and overwrite the edited version
+                checklists[idx] = JSON.parse(originalChecklistState);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+                renderChecklists(); // Re-render the Data tab to show the reverted data
+            }
+        }
+
+        // The Magic Bullet: Clear active states
+        activeChecklistId = null; 
+        originalChecklistState = null; // Clear the snapshot
+        
+        document.getElementById('startBtn').innerText = "Create & Start Checklist ➔";
+
+        // Restore UI to Normal
+        document.getElementById('statusBanner').style.display = 'none';
+        document.getElementById('statusBannerSetup').style.display = 'none';
+        
+        const mainHeader = document.querySelector('header');
+        mainHeader.style.background = 'var(--primary)';
+        mainHeader.innerHTML = 'Tern Tracker HK';
+
+        const dataTabBtn = document.getElementById('nav-tab-data');
+        dataTabBtn.style.opacity = '1';
+        dataTabBtn.style.pointerEvents = 'auto'; 
+
+        const birdTabBtn = document.getElementById('nav-tab-entry');
+        birdTabBtn.style.opacity = '0.3';
+        birdTabBtn.style.pointerEvents = 'none';
+        
+        // Erase the unsaved junk from the screen
+        document.getElementById('speciesContainer').innerHTML = '';
+        document.getElementById('disturbanceContainer').innerHTML = '';
+        document.getElementById('transectId').value = "";
+        document.getElementById('subTransect').innerHTML = '<option value="">-- Select Area --</option>';
+        document.getElementById('routeTagDisplay').style.display = 'none'; 
+        document.getElementById('envTemp').value = "";
+        document.getElementById('envWeather').value = "";
+        document.getElementById('envWindDir').value = "";
+        document.getElementById('envWindForce').value = "";
+        document.getElementById('setupRemarks').value = ""; 
+        document.getElementById('afcdStaff').value = "";
+        document.getElementById('surveyor').value = "";
+        
+        setNow(); 
+        
+        // Retreat safely to the Data tab
+        switchTab('tab-data'); 
+    }
+}
+        
+           function loadChecklistIntoTab2(id, isNew = false) {
+            const chk = checklists.find(c => c.id === id);
+            if(!chk) return;
+
+            activeChecklistId = id;
+            if (!isNew) {
+        originalChecklistState = JSON.stringify(chk);
+    } else {
+        originalChecklistState = null; // Clear it for new checklists
+    }
+
+            document.getElementById('envDate').value = chk.date;
+            document.getElementById('envTime').value = chk.time;
+            document.getElementById('transectId').value = chk.transectId;
+            updateSubTransects(chk.subTransect); 
+            document.getElementById('envTemp').value = chk.temp;
+            document.getElementById('envWeather').value = chk.weather;
+            document.getElementById('envWindDir').value = chk.windDir;
+            document.getElementById('envWindForce').value = chk.windForce;
+            document.getElementById('setupRemarks').value = chk.setupRemarks || "";
+            document.getElementById('afcdStaff').value = chk.afcdStaff || "";
+            document.getElementById('surveyor').value = chk.surveyor || ""; 
+
+            document.getElementById('startBtn').innerText = "Continue to Checklist ➔";
+            document.getElementById('speciesContainer').innerHTML = '';
+            document.getElementById('disturbanceContainer').innerHTML = '';
+            
+            if (chk.birds) chk.birds.forEach(bird => addSpeciesRow(bird));
+            if (chk.disturbances) chk.disturbances.forEach(dist => addDisturbanceRow(dist));
+
+            // --- UX UPGRADE: Header Takeover & Tab Locking ---
+            const banner = document.getElementById('statusBanner');
+            const bannerSetup = document.getElementById('statusBannerSetup');
+            const mainHeader = document.querySelector('header');
+            const dataTabBtn = document.getElementById('nav-tab-data');
+            const birdTabBtn = document.getElementById('nav-tab-entry'); 
+            const discardBtn = document.getElementById('discardBtn'); // Grab the new button
+
+            banner.style.display = 'block';
+            bannerSetup.style.display = 'block';
+
+            // Lock the Data tab so they don't accidentally leave the active session
+            dataTabBtn.style.opacity = '0.3';
+            dataTabBtn.style.pointerEvents = 'none'; 
+
+            // UNLOCK the Bird tab so they can use it
+            birdTabBtn.style.opacity = '1';
+            birdTabBtn.style.pointerEvents = 'auto'; 
+
+            // LOGIC: Change UI based on whether this is a NEW checklist or an EDIT
+            if (isNew) {
+                mainHeader.style.background = 'var(--primary)'; // Stay green for new records
+                mainHeader.innerHTML = `🟢 RECORDING: ${chk.transectId || 'Route'} - ${chk.subTransect || 'Area'}`;
+                discardBtn.style.display = 'none'; // Hide the discard button
+            } else {
+                mainHeader.style.background = 'var(--accent-sand)'; // Turn amber/warning for edits
+                mainHeader.innerHTML = `✏️ EDITING: ${chk.transectId || 'Route'} - ${chk.subTransect || 'Area'}`;
+                discardBtn.style.display = 'block'; // Show the discard button
+            }
+
+            switchTab('tab-entry');
+        }
+
+        function editChecklist(id) {
+            loadChecklistIntoTab2(id, false);
+        }
+
+        function validateNestHeight(inputEl) {
+            // Find the parent row so we can check both Min and Max inputs simultaneously
+            const row = inputEl.closest('.species-row');
+            if (!row) return;
+
+            const minInput = row.querySelector('.br-min');
+            const maxInput = row.querySelector('.br-max');
+            if (!minInput || !maxInput) return;
+
+            const minWarning = minInput.nextElementSibling;
+            const maxWarning = maxInput.nextElementSibling;
+
+            const currentArea = document.getElementById('subTransect').value;
+            const knownMax = colonyMaxHeights[currentArea];
+
+            const minVal = parseFloat(minInput.value);
+            const maxVal = parseFloat(maxInput.value);
+
+            // Helper to clear warnings
+            const resetStyles = (el, warningEl) => {
+                el.style.color = "var(--text-main)";
+                el.style.borderColor = "var(--border-light)";
+                el.style.backgroundColor = "var(--card-bg)";
+                if (warningEl && warningEl.classList.contains('ht-warning')) {
+                    warningEl.style.display = "none";
+                    warningEl.innerText = "";
+                }
+            };
+
+            // Helper to apply the red danger styling
+            const setWarning = (el, warningEl, msg) => {
+                el.style.color = "var(--danger)";
+                el.style.borderColor = "var(--danger)";
+                el.style.backgroundColor = "var(--danger-bg)";
+                if (warningEl && warningEl.classList.contains('ht-warning')) {
+                    warningEl.style.display = "block";
+                    warningEl.innerText = msg;
+                }
+            };
+
+            // 1. Reset both inputs to their default, clean state first
+            resetStyles(minInput, minWarning);
+            resetStyles(maxInput, maxWarning);
+
+            let minError = null;
+            let maxError = null;
+
+            // 2. Original Logic: Check if either value exceeds the Colony Max Height
+            if (knownMax !== undefined) {
+                if (!isNaN(minVal) && minVal > knownMax) minError = `> colony max (${knownMax}m)`;
+                if (!isNaN(maxVal) && maxVal > knownMax) maxError = `> colony max (${knownMax}m)`;
+            }
+
+            // 3. NEW LOGIC: Check if Min is greater than Max!
+            if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+                // If there's already an error (like exceeding colony max), we combine the messages
+                minError = minError ? minError + " & Min > Max" : "Min > Max";
+                maxError = maxError ? maxError + " & Max < Min" : "Max < Min";
+            }
+
+            // 4. Apply the red warnings if any errors were found
+            if (minError) setWarning(minInput, minWarning, minError);
+            if (maxError) setWarning(maxInput, maxWarning, maxError);
+        }
+
+        // NEW: Scans the entire page and re-runs validation on every height input
+        function revalidateAllNestHeights() {
+            document.querySelectorAll('.br-min, .br-max').forEach(input => {
+                validateNestHeight(input);
+            });
+        }
+        
+        function addSpeciesRow(bird = null) {
+            const container = document.getElementById('speciesContainer');
+            const id = 'bird-' + Date.now() + Math.floor(Math.random() * 1000);
+            
+            const sp = bird ? bird.species : '';
+            const qty = bird ? bird.count : (sp ? 0 : 1);
+            const rem = bird && bird.remarks ? bird.remarks : '';
+            const nst = bird && bird.nests ? bird.nests : '';
+            const juv = bird && bird.juvs ? bird.juvs : '';
+            const minH = bird && bird.minH ? bird.minH : '';
+            const maxH = bird && bird.maxH ? bird.maxH : '';
+
+            const hasBreedData = nst !== '' || juv !== '' || minH !== '' || maxH !== '';
+            const breedDisplay = hasBreedData ? 'block' : 'none';
+            const breedBtnText = hasBreedData ? '➖ Hide Breeding Data' : '➕ Add Breeding Data';
+
+            // Cleaned up inline styles & added flex alignments for perfect sizing
+            // NEW: Added oninput="validateNestHeight(this)" and the ht-warning divs
+            const html = `
+                <div class="card species-row" id="${id}">
+                    <div style="display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label>Species</label>
+                            <input type="text" class="sp-name" list="hk-tern" value="${sp}" placeholder="e.g. Bridled Tern" style="width: 100%; margin: 0; font-weight: 600; font-size: 15px;">
+                        </div>
+                        <button class="btn-danger" onclick="if(confirm('Delete this species record?')) document.getElementById('${id}').remove()" style="width: 40px; height: 40px; margin: 0; padding: 0; font-size: 16px; display: flex; align-items: center; justify-content: center;">X</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label>Count</label>
+                            <div class="counter-group" style="margin: 0;">
+                                <button class="counter-btn" onclick="adjustCount('${id}', -1)" style="height: 40px;">-</button>
+                                <input type="number" class="counter-display sp-qty" value="${qty}" min="0" style="height: 40px;">
+                                <button class="counter-btn" onclick="adjustCount('${id}', 1)" style="height: 40px;">+</button>
+                            </div>
+                        </div>
+                        <div style="flex: 1.5;">
+                            <label>Remarks</label>
+                            <input type="text" class="sp-rem" value="${rem}" placeholder="e.g. Behavior" style="width: 100%; margin: 0; height: 40px;">
+                        </div>
+                    </div>
+                    
+                    <button class="btn-secondary toggle-breed-btn" onclick="toggleBreed('${id}')" style="width: 100%; margin-bottom: 0; font-size: 13px;">${breedBtnText}</button>
+                    
+                    <div class="breed-section" style="display: ${breedDisplay}; background: var(--bg-color); padding: 10px; border-radius: 6px; margin-top: 8px; border: 1px solid var(--border-light);">
+                        <div class="two-col">
+                            <div>
+                                <label>No. of Nests</label>
+                                <input type="number" class="br-nests" value="${nst}" placeholder="e.g. 1" style="margin: 0;">
+                            </div>
+                            <div>
+                                <label>No. of Juvs.</label>
+                                <input type="number" class="br-juvs" value="${juv}" placeholder="e.g. 1" style="margin: 0;">
+                            </div>
+                            <div>
+                                <label>Min. Nest Ht (m)</label>
+                                <input type="number" class="br-min" value="${minH}" placeholder="e.g. 1.5" style="margin: 0;" oninput="validateNestHeight(this)">
+                                <div class="ht-warning" style="color: var(--danger); font-size: 11px; font-weight: bold; display: none; margin-top: 4px; line-height: 1.2;"></div>
+                            </div>
+                            <div>
+                                <label>Max. Nest Ht (m)</label>
+                                <input type="number" class="br-max" value="${maxH}" placeholder="e.g. 4.0" style="margin: 0;" oninput="validateNestHeight(this)">
+                                <div class="ht-warning" style="color: var(--danger); font-size: 11px; font-weight: bold; display: none; margin-top: 4px; line-height: 1.2;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+
+            // NEW: Run the validation immediately after generating the row.
+            // This ensures that if you open an old, saved checklist that has an error, 
+            // the red warning will still show up!
+            const newRow = document.getElementById(id);
+            validateNestHeight(newRow.querySelector('.br-min'));
+            validateNestHeight(newRow.querySelector('.br-max'));
+        }
+    
+        function adjustCount(rowId, amount) {
+            const input = document.querySelector(`#${rowId} .sp-qty`);
+            let val = (parseInt(input.value) || 0) + amount;
+            if (val < 0) val = 0; 
+            input.value = val;
+        }
+
+        function toggleBreed(rowId) {
+            const section = document.querySelector(`#${rowId} .breed-section`);
+            const btn = document.querySelector(`#${rowId} .toggle-breed-btn`);
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                btn.innerHTML = '➖ Hide Breeding Data';
+            } else {
+                section.style.display = 'none';
+                btn.innerHTML = '➕ Add Breeding Data';
+            }
+        }
+
+        function addDisturbanceRow(dist = null) {
+            const container = document.getElementById('disturbanceContainer');
+            const id = 'dist-' + Date.now() + Math.floor(Math.random() * 1000);
+            
+            // UX UPGRADE: Replaced absolute positioning with Flexbox so the X button never overlaps the select field.
+            // Also updated the label color to use our new var(--danger) CSS variable.
+            const html = `
+                <div class="dist-row" id="${id}">
+                    <div style="display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <label style="color: var(--danger);">Disturbance Type</label>
+                            <select class="dist-type" onchange="updateDistFields('${id}')" style="margin: 0;">
+                                <option value="">-- Select Type --</option>
+                                <option value="Raptor">🦅 Raptor</option>
+                                <option value="Boat">🚤 Boat</option>
+                                <option value="Visitor">🚶 Visitor</option>
+                            </select>
+                        </div>
+                        <button class="btn-danger" onclick="if(confirm('Delete this disturbance record?')) document.getElementById('${id}').remove()" style="width: 40px; height: 40px; margin: 0; padding: 0; font-size: 16px; display: flex; align-items: center; justify-content: center;">X</button>
+                    </div>
+                    <div class="dist-fields"></div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+            
+            if (dist) {
+                const select = document.querySelector(`#${id} .dist-type`);
+                select.value = dist.type;
+                updateDistFields(id); 
+                
+                setTimeout(() => {
+                    if (dist.type === 'Raptor') {
+                        document.querySelector(`#${id} .d-sp`).value = dist.rSp || '';
+                        document.querySelector(`#${id} .d-num`).value = dist.rNum || '';
+                        document.querySelector(`#${id} .d-beh`).value = dist.rBeh || '';
+                    } else if (dist.type === 'Boat') {
+                        document.querySelector(`#${id} .d-btype`).value = dist.bType || '';
+                        document.querySelector(`#${id} .d-reg`).value = dist.bReg || '';
+                        document.querySelector(`#${id} .d-pass`).value = dist.bPass || '';
+                        document.querySelector(`#${id} .d-act`).value = dist.bAct || '';
+                        document.querySelector(`#${id} .d-rem`).value = dist.bRem || '';
+                    } else if (dist.type === 'Visitor') {
+                        document.querySelector(`#${id} .d-vnum`).value = dist.vNum || '';
+                        document.querySelector(`#${id} .d-vact`).value = dist.vAct || '';
+                        document.querySelector(`#${id} .d-vrem`).value = dist.vRem || '';
+                    }
+                }, 10);
+            }
+        }
+
+        function updateDistFields(rowId) {
+            const type = document.querySelector(`#${rowId} .dist-type`).value;
+            const fieldContainer = document.querySelector(`#${rowId} .dist-fields`);
+            
+            if (type === 'Raptor') {
+                fieldContainer.innerHTML = `
+                    <div class="two-col">
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Species</label><input type="text" class="d-sp" list="hk-raptor" placeholder="e.g. Black Kite"></div>
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Count</label><input type="number" class="d-num" placeholder="e.g. 1"></div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Behavior</label>
+                        <input type="text" class="d-beh" placeholder="e.g. Soaring">
+                    </div>`;
+            } else if (type === 'Boat') {
+                fieldContainer.innerHTML = `
+                    <div class="two-col">
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Boat Type</label><input type="text" class="d-btype" placeholder="e.g. Sampan"></div>
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Reg No.</label><input type="text" class="d-reg" placeholder="e.g. 294768"></div>
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Passengers</label><input type="number" class="d-pass" placeholder="e.g. 4"></div>
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Activity</label><input type="text" class="d-act" placeholder="e.g. Diving; Fishing"></div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Remarks</label>
+                        <input type="text" class="d-rem">
+                    </div>`;
+            } else if (type === 'Visitor') {
+                fieldContainer.innerHTML = `
+                    <div class="two-col">
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">No. People</label><input type="number" class="d-vnum" placeholder="e.g. 3"></div>
+                        <div><label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Activity</label><input type="text" class="d-vact" placeholder="e.g. Angling"></div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #305f4b; margin-bottom: 4px; display: block;">Remarks</label>
+                        <input type="text" class="d-vrem" placeholder="e.g. Education Actions">
+                    </div>`;
+            } else {
+                fieldContainer.innerHTML = '';
+            }
+        }
+
+        function deleteChecklist(id) {
+            if(confirm("Delete this entire checklist and all its birds?")) {
+                checklists = checklists.filter(c => c.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+                
+                if(activeChecklistId === id) {
+                    activeChecklistId = null;
+                    document.getElementById('startBtn').innerText = "Create & Start Checklist ➔";
+                    document.getElementById('statusBanner').style.display = 'none';
+                    document.getElementById('statusBannerSetup').style.display = 'none';
+                    document.getElementById('speciesContainer').innerHTML = '';
+                }
+                renderChecklists();
+            }
+        }
+
+        function clearAllData() {
+            if(confirm("WARNING: Clear all survey data from your phone?")) {
+                checklists = [];
+                activeChecklistId = null;
+                document.getElementById('startBtn').innerText = "Create & Start Checklist ➔";
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('speciesContainer').innerHTML = '';
+                document.getElementById('statusBanner').style.display = 'none';
+                document.getElementById('statusBannerSetup').style.display = 'none';
+                renderChecklists();
+            }
+        }
+
+        function renderChecklists() {
+            const container = document.getElementById('checklistContainer');
+            
+            if (checklists.length === 0) {
+                container.innerHTML = '<div class="card" style="text-align: center; color: #666;">No checklists yet.</div>';
+                return;
+            }
+
+            // Helper function to generate Area Tags (e.g., "NE01") for the UI display
+            const getTag = (route, area) => {
+                if (!route || !area || !transectData[route]) return "";
+                const index = transectData[route].indexOf(area);
+                if (index === -1) return "";
+                return route + String(index + 1).padStart(2, '0');
+            };
+
+            container.innerHTML = checklists.map(chk => {
+                const spCount = chk.birds.filter(b => b.count > 0).length;
+                const totalBirds = chk.birds.reduce((sum, b) => sum + b.count, 0);
+                const hasDist = chk.disturbances.length > 0 ? '⚠️ Disturbance Logged' : '';
+                
+                // Calculate the tag and format the title (e.g., "[NE01] Che Lei Pai")
+                const areaTag = getTag(chk.transectId, chk.subTransect);
+                const displayTitle = areaTag ? `<span style="color: #7f3f98;">[${areaTag}]</span> ${chk.subTransect}` : `${chk.transectId || 'No Line'} - ${chk.subTransect || 'No Seg'}`;
+
+                // --- NEW: Generate Dynamic Species Badges (Greater than 0 only) ---
+                let speciesBadges = '<div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px;">';
+                
+                // 1. Define your custom abbreviations dictionary here!
+                // You can add as many birds as you want to this list.
+                const abbrevMap = {
+                    "Black-naped Tern": "BNT",
+                    "Bridled Tern": "BT",
+                    "Roseate Tern": "RT",
+                    "Greater Crested Tern": "GCT",
+                    "Aleutian Tern": "AT",
+                    "White-winged Tern": "WWT",
+                    "Common Tern": "Comm.T",
+                    "Sooty Tern": "ST",
+                    "Little Tern": "LT",
+                    "Gull-billed Tern": "GBT",
+                    "Whiskered Tern": "WT",
+                    "Caspian Tern": "Casp.T",
+                    "Chinese Crested Tern": "CCT",
+                    "Brown Noddy": "Br.Noddy",
+                    "Black Noddy": "Blk.Noddy"
+                };
+
+                chk.birds.forEach(b => {
+                    const count = b.count || 0;
+                    
+                    if (count > 0) {
+                        const bg = 'var(--primary-light)';
+                        const border = 'var(--primary)';
+                        const color = 'var(--primary)';
+
+                        // 2. THE FIX: Look up the abbreviation in the map. 
+                        // If it is missing from the map, it safely falls back to the full name (b.species).
+                        const shortName = abbrevMap[b.species] || b.species; 
+
+                        speciesBadges += `<span style="background: ${bg}; border: 1px solid ${border}; color: ${color}; font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: bold; white-space: nowrap; line-height: 1;">${shortName}: ${count}</span>`;
+                    }
+                });
+                speciesBadges += '</div>';
+
+                return `
+                <div class="card" style="border-left: 5px solid #305f4b;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1; padding-right: 10px;">
+                            <strong style="font-size: 16px;">${displayTitle}</strong><br>
+                            <span style="font-size: 12px; color: #666;">🕒 ${chk.time} | 📅 ${chk.date}</span><br>
+                            <span style="font-size: 14px; color: #7f3f98; font-weight: bold;">🐦 ${spCount} Species | ${totalBirds} Birds</span>
+                            ${hasDist ? `<br><span style="font-size: 12px; color: #d94f3d; font-weight: bold;">${hasDist}</span>` : ''}
+                            
+                            ${speciesBadges}
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; min-width: 65px;">
+                            <button onclick="editChecklist('${chk.id}')" style="background: #e8f3c8; border: 1px solid #305f4b; color: #305f4b; padding: 6px 12px; border-radius: 4px; font-weight: bold; margin: 0;">Edit</button>
+                            <button onclick="deleteChecklist('${chk.id}')" style="background: transparent; border: none; color: #d94f3d; text-decoration: underline; padding: 6px 12px; margin: 0; font-size: 12px;">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // --- UPGRADED: Instant Download File Generator ---
+        function backupText() {
+            if (checklists.length === 0) return alert("No data to backup.");
+            
+            try {
+                // Compile data array into a clean JSON layout string
+                const dataStr = JSON.stringify(checklists, null, 2);
+                const dataBlob = new Blob([dataStr], { type: "application/json" });
+                
+                // Formulate target file string dynamically with local system time
+                const today = new Date().toISOString().split('T')[0];
+                const filename = `Tern_Tracker_Backup_${today}.json`;
+                
+                // Direct the sandboxed engine to push data into local machine directory
+                const downloadLink = document.createElement("a");
+                downloadLink.href = URL.createObjectURL(dataBlob);
+                downloadLink.download = filename;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            } catch (err) {
+                alert("❌ Failed to compile backup file.");
+                console.error(err);
+            }
+        }
+        
+        // Opens the picker and flushes out old choices
+        function restoreText() {
+            document.getElementById('restoreFileInput').value = ''; 
+            document.getElementById('restoreModal').classList.add('show');
+        }
+
+        function closeRestoreModal() {
+            document.getElementById('restoreModal').classList.remove('show');
+        }
+
+        // --- UPGRADED: High-Capacity Secure File Reader ---
+        function processRestore() {
+            const fileInput = document.getElementById('restoreFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select a backup file first!");
+                return; 
+            }
+            
+            // Invoke sandboxed system FileReader engine
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsedData = JSON.parse(e.target.result);
+                    
+                    // Structural confirmation verification sequence
+                    if (Array.isArray(parsedData) && parsedData.length > 0 && parsedData[0].id) {
+                        const confirmRestore = confirm(`Found ${parsedData.length} survey records. Do you want to merge this file with your current app data?`);
+                        if (confirmRestore) {
+                            // Extract keys to reject duplicate array appends
+                            const existingIds = checklists.map(c => c.id);
+                            const newRecords = parsedData.filter(c => !existingIds.includes(c.id));
+                            
+                            // Re-commit variables onto state stacks
+                            checklists = [...checklists, ...newRecords];
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+                            renderChecklists();
+                            
+                            alert("✅ Data Restored From File Successfully!");
+                            closeRestoreModal(); 
+                        }
+                    } else {
+                        alert("❌ Invalid backup file format. This structure does not appear to belong to Tern Tracker records.");
+                    }
+                } catch (err) {
+                    alert("❌ Failed to parse data stream. Ensure you selected an intact, unmodified `.json` file.");
+                    console.error(err);
+                }
+            };
+            
+            // Execute non-blocking system read pass
+            reader.readAsText(file);
+        }
+
+ function exportExcel() {
+            if (checklists.length === 0) return alert("No data to export.");
+
+            // Helper function to generate Area Tags (e.g., "NE01", "SE05")
+            const getAreaTag = (route, area) => {
+                if (!route || !area || !transectData[route]) return "";
+                const index = transectData[route].indexOf(area);
+                if (index === -1) return "";
+                return route + String(index + 1).padStart(2, '0'); 
+            };
+
+            // --- STRICT ASCENDING INDEX SORTING ---
+            const sortedChecklists = [...checklists].sort((a, b) => {
+                // 1. Sort Regions first (NE before SE before S)
+                const regionOrder = { "NE": 1, "SE": 2, "S": 3 };
+                const rankA = regionOrder[a.transectId] || 99;
+                const rankB = regionOrder[b.transectId] || 99;
+                
+                if (rankA !== rankB) {
+                    return rankA - rankB; // Ascending: NE(1) comes before SE(2)
+                }
+
+                // 2. Sort Areas mathematically by their exact order in your transectData list
+                const getAreaIndex = (route, area) => {
+                    if (!route || !area || !transectData[route]) return 999;
+                    const index = transectData[route].indexOf(area);
+                    return index === -1 ? 999 : index; // 999 pushes any unknown data to the very bottom
+                };
+
+                const indexA = getAreaIndex(a.transectId, a.subTransect);
+                const indexB = getAreaIndex(b.transectId, b.subTransect);
+
+                // Ascending: 0 (NE01) comes before 1 (NE02)
+                return indexA - indexB; 
+            });
+
+            // Prepare arrays to hold data for our three sheets
+            const surveyData = [];
+            const birdData = [];
+            const distData = [];
+
+            const distHeaders = ["Waters", "Route Order", "Date", "Area", "Disturbance Type", "Raptor_Species", "Raptor_Count", "Raptor_Behavior", "Boat_Type", "Boat_Reg_No", "Boat_Passengers", "Boat_Activity", "Boat_Remarks", "Visitor_No", "Visitor_Activity", "Visitor_Remarks"];
+
+            // --- USE THE SORTED ARRAY FOR THE EXPORT ---
+            sortedChecklists.forEach(chk => {
+                const areaTag = getAreaTag(chk.transectId, chk.subTransect);
+
+                // 1. POPULATE SURVEY INFO SHEET
+                surveyData.push({
+                    "Waters": chk.transectId || "",
+                    "Route Order": areaTag,
+                    "Date": chk.date || "",
+                    "Area": chk.subTransect || "",
+                    "Arrival Time": chk.time || "",
+                    "Temp": chk.temp || "",
+                    "Wind Direction": chk.windDir || "",
+                    "Wind Force": chk.windForce || "",
+                    "Weather": chk.weather || "",
+                    "AFCD Staff": chk.afcdStaff || "",
+                    "Surveyor": chk.surveyor || "",
+                    "Route Remarks": chk.setupRemarks || ""
+                });
+
+                // 2. POPULATE BIRDS SHEET
+                chk.birds.forEach(b => {
+                    birdData.push({
+                        "Waters": chk.transectId || "",
+                        "Route Order": areaTag,
+                        "Date": chk.date || "",
+                        "Area": chk.subTransect || "",
+                        "Species": b.species || "",
+                        "Count": b.count || 0,
+                        "No. of Nest": b.nests || "",
+                        "Max Height": b.maxH || "",
+                        "Min Height": b.minH || "",
+                        "No. of Young": b.juvs || "",
+                        "Birds Remarks": b.remarks || ""
+                    });
+                });
+
+                // 3. POPULATE DISTURBANCES SHEET
+                chk.disturbances.forEach(d => {
+                    distData.push({
+                        "Waters": chk.transectId || "",
+                        "Route Order": areaTag,
+                        "Date": chk.date || "",
+                        "Area": chk.subTransect || "",
+                        "Disturbance Type": d.type || "",
+                        "Raptor_Species": d.rSp || "",
+                        "Raptor_Count": d.rNum || "",
+                        "Raptor_Behavior": d.rBeh || "",
+                        "Visitor_Activity": d.vAct || "",
+                        "Visitor_No": d.vNum || "",
+                        "Visitor_Remarks": d.vRem || "",
+                        "Boat_Type": d.bType || "",
+                        "Boat_Reg_No": d.bReg || "",
+                        "Boat_Passengers": d.bPass || "",
+                        "Boat_Activity": d.bAct || "",
+                        "Boat_Remarks": d.bRem || ""    
+                    });
+                });
+            });
+
+            // Create a new Excel Workbook
+            const wb = XLSX.utils.book_new();
+
+            // Convert our data arrays into Excel Sheets
+            const wsSurvey = XLSX.utils.json_to_sheet(surveyData);
+            const wsBirds = XLSX.utils.json_to_sheet(birdData);
+            
+            // Handle the disturbance sheet
+            const wsDist = distData.length > 0 
+                ? XLSX.utils.json_to_sheet(distData) 
+                : XLSX.utils.json_to_sheet([], { header: distHeaders });
+
+            // Attach the sheets to the workbook
+            XLSX.utils.book_append_sheet(wb, wsSurvey, "Tripinfo");
+            XLSX.utils.book_append_sheet(wb, wsBirds, "Tern");
+            XLSX.utils.book_append_sheet(wb, wsDist, "Disturbance");
+
+            // Trigger the download
+            const fileName = `Tern-Survey-${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+    // DEFENSE LAYER 1: Save whenever an input loses focus or a dropdown changes
+document.getElementById('main-content').addEventListener('change', function(e) {
+    if (activeChecklistId) {
+        quickSave();
+    }
+});
+// DEFENSE LAYER 2: Save if the app is minimized, closed, or screen turns off
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden' && activeChecklistId) {
+        quickSave();
+    }
+});
+
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // 1. Safari Fix: 'updateViaCache: none' forces Safari to actually check the network for a new sw.js file
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+                    .then((registration) => {
+                        console.log('ServiceWorker successfully registered.');
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker registration failed:', error);
+                    });
+
+                // 2. The Auto-Refresh Fix: When the new sw.js takes over, automatically refresh the screen!
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        window.location.reload();
+                        refreshing = true;
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

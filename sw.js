@@ -1,6 +1,6 @@
 // ⚠️ BUMP THIS NUMBER EVERY TIME YOU UPLOAD TO GITHUB 
 // (e.g., v3, v3.1, v4) to trigger the update process.
-const CACHE_NAME = 'tern-survey-v1.1.1'; 
+const CACHE_NAME = 'tern-survey-v1.3.2'; 
 
 const ASSETS_TO_CACHE = [
   './',
