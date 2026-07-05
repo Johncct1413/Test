@@ -1101,16 +1101,17 @@
         function switchTab(tabId) {
             if (activeChecklistId) quickSave();
 
-            if (tabId === 'tab-setup' && !activeChecklistId) {
+                        if (tabId === 'tab-setup' && !activeChecklistId) {
                 setNow();
-            }
+                
                 // --- NEW: Force the weather warning to hide when returning to a clean Route tab ---
                 const warnContainer = document.getElementById('weatherWarningContainer');
                 if (warnContainer) {
                     warnContainer.style.display = 'none';
                     warnContainer.innerHTML = '';
                 }
-        }
+                        }
+            
 
             document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
