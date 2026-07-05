@@ -711,6 +711,13 @@
                 }
             });
 
+                        // --- NEW: Clear any old warnings while we fetch new ones ---
+            const warnContainer = document.getElementById('weatherWarningContainer');
+            if (warnContainer) {
+                warnContainer.style.display = 'none';
+                warnContainer.innerHTML = '';
+            }
+
             let currentStep = "Initiating fetch sequence";
             const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
             const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
