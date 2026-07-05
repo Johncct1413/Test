@@ -267,12 +267,12 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h4 style="margin: 0;">🌤️ Weather</h4>
-                    <button id="btn-fetch-weather" onclick="autoFillWeather()" style="width: auto; padding: 4px 10px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: 1px solid var(--accent-ocean); font-size: 11px; font-weight: bold; border-radius: 4px;">☁️ Auto-Fill HKO Weather (Beta Ver.)</button>
+                    <button id="btn-fetch-weather" onclick="autoFillWeather()" style="width: auto; padding: 4px 10px; margin: 0; background: var(--accent-ocean-bg); color: var(--accent-ocean); border: 1px solid var(--accent-ocean); font-size: 11px; font-weight: bold; border-radius: 4px;">☁️ Auto-Fill HKO Temp. & Wind (Beta)</button>
                 </div>
                 <div class="two-col">
                     <div>
                         <label>Temperature (°C)</label>
-                        <input type="number" id="envTemp" placeholder="e.g. 28">
+                        <input type="number" step="0.1" id="envTemp" placeholder="e.g. 28">
                     </div>
                     <div>
                         <label>Weather</label>
@@ -425,7 +425,7 @@
             <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 12px; border-top: 1px dashed var(--border-light); padding-top: 15px;">
                 <p style="margin: 0 0 4px 0;"><strong style="color: var(--primary);">TernTracker HK v1.3.0</strong></p>
                 <p style="margin: 0 0 4px 0;">Developed for Fieldwork Data Collection by John Chung</p>
-                <p style="margin: 0 0 12px 0;">For Internal Use Only • Last Updated: Jun 2026</p>
+                <p style="margin: 0 0 12px 0;">For Internal Use Only • Last Updated: Jul 2026</p>
                 <details style="text-align: left; background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
                     <summary style="font-weight: bold; cursor: pointer; color: var(--primary); outline: none; list-style-position: inside;">📋 View Change Log</summary>
                     <div style="margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--text-main); border-top: 1px solid var(--border-light); padding-top: 8px;">
@@ -434,6 +434,8 @@
                         <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
                             <li><strong>Feature:</strong> "Auto-Fill HKO" now in beta version for automatically filling the weather from HKO of the nearest weather station.</li>
                             <li><strong>Feature:</strong> Weather input upgraded to a dropdown for quick selection (Sunny, Cloudy).</li>
+                            <li><strong>Feature:</strong> Count of each species within each checklist are now shown in the data tab.</li>
+                            <li><strong>Fix:</strong> Not showing the correct date in route tab.</li>
                         </ul>
 
                         <strong style="color: var(--accent-ocean);">v1.2.0</strong>
@@ -520,6 +522,7 @@
         let checklists = [];
         let activeChecklistId = null;
         let originalChecklistState = null;
+        let weatherAbortController = null; 
 
         const transectData = {
             "NE": ["Ma Liu Shui Pier - Che Lei Pai", "Che Lei Pai", "Che Lei Pai - Hoi Ha", "Hoi Ha", "Hoi Ha - Chap Mo Chau", "Chap Mo Chau", "Chap Mo Chau - Yan Chau", "Yan Chau", "Yan Chau - Wong Nai Chau", "Wong Nai Chau", "Wong Nai Chau - Round Island", "Round Island (Pak Sha Chau)", "Round Island - Port Island", "Port Island", "Port Island - Kung Chau", "Kung Chau", "Kung Chau - Shek Ngau Chau", "Shek Ngau Chau", "Shek Ngau Chau - Tap Mun", "Tap Mun", "Tap Mun - Wong Shek Pier", "Wong Shek Pier"],
@@ -565,14 +568,35 @@
             birdTabBtn.style.pointerEvents = 'none';
         };
 
-        function setNow() {
+       function setNow() {
             const now = new Date();
-            document.getElementById('envDate').value = now.toISOString().split('T')[0];
-            document.getElementById('envTime').value = now.toTimeString().slice(0, 5);
+            
+            // 1. Get the exact LOCAL year, month, and day
+            const year = now.getFullYear();
+            // Months are 0-indexed in JS, so we add 1. padStart ensures "7" becomes "07"
+            const month = String(now.getMonth() + 1).padStart(2, '0'); 
+            const day = String(now.getDate()).padStart(2, '0');
+            
+            // 2. Get the exact LOCAL hours and minutes
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // 3. Apply them to the form
+            document.getElementById('envDate').value = `${year}-${month}-${day}`;
+            document.getElementById('envTime').value = `${hours}:${minutes}`;
         }
 
-        // NEW: Auto-Fetch live weather data from HKO (Google Apps Script Proxy)
+        // NEW: Auto-Fetch live weather data from HKO (Google Apps Script Proxy - Cancellable)
         async function autoFillWeather() {
+            const btn = document.getElementById('btn-fetch-weather');
+
+            // --- 1. THE CANCEL LISTENER ---
+            // If the controller already exists, a fetch is currently running. Kill it!
+            if (weatherAbortController) {
+                weatherAbortController.abort(); 
+                return; 
+            }
+
             if (!navigator.onLine) {
                 alert("⚠️ No internet connection. Cannot fetch live HKO data.");
                 return;
@@ -581,24 +605,26 @@
             const currentRoute = document.getElementById('transectId').value;
             const currentArea = document.getElementById('subTransect').value;
             
-            if (!currentRoute) {
-                alert("⚠️ Please select Waters first so as to fetch the correct local station data.");
+            // THE FIX: Now checks for BOTH Route and Area before allowing the fetch
+            if (!currentRoute || !currentArea) {
+                alert("⚠️ Please select both 'Waters' and 'Area' first to fetch the correct local station data.");
+                
+                // If they tapped the Cancel button, reset the controller so it doesn't get stuck
+                if (weatherAbortController) {
+                    weatherAbortController = null;
+                }
                 return;
             }
 
             // ==========================================
-            // 1. SMART STATION SELECTOR
+            // 1. SMART STATION SELECTOR (Preserved your exact lists!)
             // ==========================================
-            
-            // Default stations used if the specific area isn't customized below
             const routeDefaults = {
                 'NE': ['Tap Mun', 'Pak Tam Chung', 'Sai Kung'],
                 'S':  ['Cheung Chau', 'Cheung Chau Beach', 'Lamma Island'],
                 'SE': ['Waglan Island', 'Kau Sai Chau']
             };
 
-            // Custom Station Overrides per Area! 
-            // Add as many specific areas here as you want. Make sure the names exactly match the dropdown.
             const areaOverrides = {
                 "Ma Liu Shui Pier - Che Lei Pai": ["Sha Tin", "Tai Po", "Tap Mun"],
                 "Che Lei Pai": ["Tai Mei Tuk", "Pak Tam Chung", "Tap Mun"], 
@@ -649,41 +675,61 @@
                 "Adamasta Channel and area near Shek Kwu Chau and Cheung Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
                 "West Lamma Channel, between Cheung Chau, Hei Ling Chau and Peng Chau": ["Cheung Chau", "Cheung Chau Beach", "Lamma Island"], 
                 "Peng Chau - Tsim Sha Tsui Pier": ["Peng Chau", "Cheung Chau", "Cheung Chau Beach"], 
-                "Tsim Sha Tsui Pier": ["King's Park", "HK Observatory", "Star Ferry"],
+                "Tsim Sha Tsui Pier": ["King's Park", "HK Observatory", "Star Ferry"]
             };
 
-            // The App decides: Use the override if it exists, otherwise use the Route default.
             let targetStations = areaOverrides[currentArea] || routeDefaults[currentRoute] || [];
 
-            const btn = document.getElementById('btn-fetch-weather');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = "⏳ Fetching...";
-            btn.disabled = true;
+            // --- 2. UI PREPARATION: Change button to a red Cancel button ---
+            const originalText = "☁️ Auto-Fill HKO Temp. & Wind (Beta)";
+            btn.innerHTML = "❌ Cancel Fetch";
+            btn.style.background = "var(--danger-bg)";
+            btn.style.color = "var(--danger)";
+            btn.style.border = "1px solid var(--danger)";
 
-            let currentStep = "Initiating fetch sequence";
-            
-            // ⚠️ YOUR NEW UNIVERSAL GOOGLE PROXY URL:
-            const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
-
-            const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const FETCH_TIMEOUT_MS = 10000; 
-
-            // --- 1. NEW: LOCK THE BOTTOM NAVIGATION ---
+            // LOCK THE BOTTOM NAVIGATION
             const navButtons = document.querySelectorAll('.nav-btn');
             navButtons.forEach(nav => {
                 nav.style.pointerEvents = 'none';
-                nav.style.opacity = '0.5'; // Dims the buttons so the user knows they are locked
+                nav.style.opacity = '0.5'; 
             });
+            // --- NEW: LOCK THE MAIN START BUTTON ---
+            const mainStartBtn = document.getElementById('startBtn');
+            if (mainStartBtn) {
+                mainStartBtn.disabled = true;
+                mainStartBtn.style.opacity = '0.5';
+            }
+            // --- NEW: LOCK THE WEATHER INPUTS ---
+            const weatherInputs = ['envTemp', 'envWindDir', 'envWindForce'];
+            weatherInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    el.style.opacity = '0.5';
+                }
+            });
+
+            let currentStep = "Initiating fetch sequence";
+            const googleProxyUrl = 'https://script.google.com/macros/s/AKfycbzFpGCIf9kDTXEeouZDTapuj5BaVGbzTaJXX0IqBVIV6HI-7nruArCPyZIz9t5cJREjnQ/exec';
+            const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            // --- 3. THE UNIFIED TIMEOUT & CONTROLLER ---
+            weatherAbortController = new AbortController();
+            const FETCH_TIMEOUT_MS = 15000; 
+            const weatherTimeout = setTimeout(() => {
+                if (weatherAbortController) weatherAbortController.abort();
+            }, FETCH_TIMEOUT_MS);
 
             try {
                 // ==========================================
-                // --- 2. Fetch Temperature Data (CSV) ---
+                // --- 4. Fetch Temperature Data (CSV) ---
                 // ==========================================
                 currentStep = "Fetching Temperature CSV Data";
                 const hkoTempCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv';
                 
                 const fetchTempUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoTempCsv)}&_=${Date.now()}`;
-                const tempRes = await fetch(fetchTempUrl);
+                // Pass the unified signal
+                const tempRes = await fetch(fetchTempUrl, { signal: weatherAbortController.signal });
                 
                 if (!tempRes.ok) throw new Error("Failed to connect to Google Proxy for Temperature.");
                 let tempCsvText = await tempRes.text();
@@ -700,38 +746,41 @@
 
                 for (let target of tempPrefs) {
                     const cleanTarget = normalize(target);
-                    
                     for (let i = 1; i < tempLines.length; i++) {
                         const cols = tempLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
                         
                         if (cols.length >= 3 && normalize(cols[1]).includes(cleanTarget)) {
-                            const parsedVal = parseFloat(cols[2]);
-                            if (!isNaN(parsedVal)) {
-                                tempVal = parsedVal;
-                                matchedTempStation = target;
-                                break;
+                            const rawTempVal = cols[2].trim().toUpperCase();
+                            
+                            // THE FIX: Only accept the data if it is NOT an N/A or blank
+                            if (rawTempVal !== "N/A" && rawTempVal !== "NA" && rawTempVal !== "") {
+                                const parsedVal = parseFloat(cols[2]);
+                                if (!isNaN(parsedVal)) {
+                                    tempVal = parsedVal;
+                                    matchedTempStation = target;
+                                    break;
+                                }
                             }
+                            // If it IS "N/A", the loop simply ignores it and keeps hunting!
                         }
                     }
                     if (tempVal !== null) break; 
                 }
 
-                if (tempVal !== null) {
-                    const tempInput = document.getElementById('envTemp');
-                    tempInput.setAttribute('step', '0.1'); 
-                    tempInput.value = tempVal;
+               if (tempVal !== null) {
+                    document.getElementById('envTemp').value = tempVal;
                 } else {
                     console.warn("Temperature not found. Attempted:", tempPrefs.join(', '));
                 }
 
                 // ==========================================
-                // --- 3. Fetch Wind Data (CSV) ---
+                // --- 5. Fetch Wind Data (CSV) ---
                 // ==========================================
                 currentStep = "Fetching Wind CSV Data";
                 const hkoWindCsv = 'https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv';
                 
                 const fetchWindUrl = `${googleProxyUrl}?url=${encodeURIComponent(hkoWindCsv)}&_=${Date.now()}`;
-                const windRes = await fetch(fetchWindUrl);
+                const windRes = await fetch(fetchWindUrl, { signal: weatherAbortController.signal });
                 
                 if (!windRes.ok) throw new Error("Failed to connect to Google Proxy for Wind.");
                 let windCsvText = await windRes.text();
@@ -742,36 +791,46 @@
 
                 currentStep = "Parsing Wind CSV Rows";
                 const windLines = windCsvText.trim().split('\n');
-                let stationWindData = null;
-                let matchedWindStation = null;
+                
+                // THE FIX: Track Direction and Speed completely separately!
+                let finalWindDir = null;
+                let finalWindSpeed = null;
+                let matchedDirStation = null;
+                let matchedSpeedStation = null;
 
                 for (let target of targetStations) {
                     const cleanTarget = normalize(target);
-                    
                     for (let i = 1; i < windLines.length; i++) {
                         const cols = windLines[i].split(',').map(c => c.replace(/["\r]/g, '').trim());
                         
                         if (cols.length >= 4 && normalize(cols[1]).includes(cleanTarget)) {
-                            const rawDir = cols[2];
-                            const rawSpeed = cols[3].replace(/[^0-9a-zA-Z]/g, ''); 
+                            const rawDir = cols[2].trim();
+                            const rawSpeedData = cols[3].trim().toUpperCase(); 
                             
-                            if (rawSpeed !== "") {
-                                stationWindData = {
-                                    direction: rawDir,
-                                    speed: rawSpeed
-                                };
-                                matchedWindStation = target;
-                                break;
+                            const isDirBad = (rawDir.toUpperCase() === "N/A" || rawDir.toUpperCase() === "NA" || rawDir === "");
+                            const isSpeedBad = (rawSpeedData === "N/A" || rawSpeedData === "NA" || rawSpeedData === "");
+
+                            // If direction is good AND we don't have one yet, lock it in!
+                            if (!isDirBad && finalWindDir === null) {
+                                finalWindDir = rawDir;
+                                matchedDirStation = target;
                             }
+
+                            // If speed is good AND we don't have one yet, lock it in!
+                            if (!isSpeedBad && finalWindSpeed === null) {
+                                finalWindSpeed = rawSpeedData;
+                                matchedSpeedStation = target;
+                            }
+                            
+                            break; // Stop scanning this CSV row once we find the target station
                         }
                     }
-                    if (stationWindData) break; 
+                    // If we successfully found BOTH pieces of data, we can stop checking backup stations!
+                    if (finalWindDir !== null && finalWindSpeed !== null) break; 
                 }
 
-                if (stationWindData) {
+                if (finalWindDir !== null || finalWindSpeed !== null) {
                     currentStep = "Applying Wind Data to Form";
-                    const rawDir = stationWindData.direction;   
-                    const rawSpeed = stationWindData.speed; 
 
                     const dirMap = {
                         "North": "N", "Northeast": "NE", "East": "E", "Southeast": "SE",
@@ -779,14 +838,19 @@
                         "Variable": "VRB", "Calm": "Calm"
                     };
                     
-                    if (rawDir && rawDir.toUpperCase() !== "N/A") {
-                        document.getElementById('envWindDir').value = dirMap[rawDir] || rawDir;
+                    // Apply Direction (if we found one)
+                    if (finalWindDir) {
+                        document.getElementById('envWindDir').value = dirMap[finalWindDir] || finalWindDir;
                     }
 
-                    if (rawSpeed.toUpperCase() === "CALM") {
+                    // Apply Speed (if we found one)
+                    if (finalWindSpeed === "N/A" || finalWindSpeed === "NA") {
+                        // If the backup stations also failed and returned N/A, leave the box blank!
+                        document.getElementById('envWindForce').value = "";
+                    } else if (finalWindSpeed === "CALM") {
                         document.getElementById('envWindForce').value = 0;
-                    } else if (rawSpeed && rawSpeed.toUpperCase() !== "N/A") {
-                        const speed = parseInt(rawSpeed);
+                    } else if (finalWindSpeed) {
+                        const speed = parseInt(finalWindSpeed.replace(/[^0-9]/g, ''));
                         if (!isNaN(speed)) {
                             let beaufort = 0;
                             if (speed >= 2 && speed <= 6) beaufort = 1;
@@ -801,52 +865,74 @@
                             else if (speed >= 88 && speed <= 103) beaufort = 10;
                             else if (speed >= 104 && speed <= 117) beaufort = 11;
                             else if (speed >= 118) beaufort = 12;
-                            
                             document.getElementById('envWindForce').value = beaufort;
                         }
                     }
                 }
 
-                // ==========================================
-                // --- 4. Success Notice / Reporting ---
-                // ==========================================
                 let noticeMsg = "✅ Weather data auto-filled successfully!\n\n";
-                
-                // Show what the app TRIED to get first
                 noticeMsg += `🎯 Target Location: ${currentArea ? currentArea : currentRoute}\n`;
                 noticeMsg += `🌡️ Temp Station Used: ${matchedTempStation || 'Not Found'}\n`;
-                noticeMsg += `💨 Wind Station Used: ${matchedWindStation || 'Not Found'}`;
+                
+                // Show if the wind sensors were split across two different stations!
+                if (matchedDirStation === matchedSpeedStation) {
+                    noticeMsg += `💨 Wind Station Used: ${matchedDirStation || 'Not Found'}`;
+                } else {
+                    noticeMsg += `💨 Wind Stations Used:\n   - Dir: ${matchedDirStation || 'Not Found'}\n   - Speed: ${matchedSpeedStation || 'Not Found'}`;
+                }
 
-                // Add a gentle warning if a primary station was offline
-                if ((matchedWindStation && matchedWindStation !== targetStations[0]) || 
+                if ((matchedDirStation && matchedDirStation !== targetStations[0]) || 
+                    (matchedSpeedStation && matchedSpeedStation !== targetStations[0]) || 
                     (matchedTempStation && matchedTempStation !== targetStations[0])) {
-                    noticeMsg += `\n\nℹ️ Note: Primary station offline or unavailable. Backup station data was used.`;
+                    noticeMsg += `\n\nℹ️ Note: Primary station offline or incomplete. Backup station data was used.`;
                 }
 
                 alert(noticeMsg);
-
                 if (activeChecklistId) quickSave();
 
             } catch (err) {
                 console.error("HKO Fetch Error:", err);
-                alert(`❌ Fetch Failed at step: [${currentStep}]\nDetails: ${err.message}`);
+                
+                if (err.name === 'AbortError') {
+                    // This alert covers BOTH the 10-second timeout and the manual cancel
+                    alert(`⚠️ Fetch Canceled or Timed Out.\nIf you canceled it manually, you can now switch tabs. Otherwise, your cell signal might be too weak.`);
+                } else {
+                    alert(`❌ Fetch Failed at step: [${currentStep}]\nDetails: ${err.message}`);
+                }
+                
             } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                // --- 6. CLEAN UP: Reset the UI back to normal ---
+                clearTimeout(weatherTimeout);
+                weatherAbortController = null; // Clear it so we can run again later!
 
-                // --- 2. NEW: UNLOCK THE BOTTOM NAVIGATION ---
+                btn.innerHTML = originalText;
+                btn.style.background = "var(--accent-ocean-bg)";
+                btn.style.color = "var(--accent-ocean)";
+                btn.style.border = "1px solid var(--accent-ocean)";
+
+                // UNLOCK NAVIGATION
                 navButtons.forEach(nav => {
-                    // Only unlock tabs that aren't natively locked by your checklist logic
                     if (nav.id !== 'nav-tab-entry' || activeChecklistId) {
                         nav.style.pointerEvents = 'auto';
                         nav.style.opacity = '1';
                     } else {
-                        // Keeps the Bird tab dimmed if no checklist is active!
                         nav.style.opacity = '0.3'; 
                     }
                 });
-            }
-        }
+                if (mainStartBtn) {
+                    mainStartBtn.disabled = false;
+                    mainStartBtn.style.opacity = '1';
+                }
+                const weatherInputs = ['envTemp', 'envWeather', 'envWindDir', 'envWindForce'];
+                weatherInputs.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.disabled = false;
+                        el.style.opacity = '1';
+                    }
+                });
+            } 
+        } 
 
         // --- Beaufort Modal Logic ---
         function openWindModal() {
@@ -1085,7 +1171,8 @@
 
             // 5. Switch to the Route tab for review
             switchTab('tab-setup');
-            autoFillWeather();
+
+            //autoFillWeather();
         }
 
         function finalizeStart(newChk, lat, lng, btn) {
@@ -1358,43 +1445,68 @@
         }
 
         function validateNestHeight(inputEl) {
+            // Find the parent row so we can check both Min and Max inputs simultaneously
+            const row = inputEl.closest('.species-row');
+            if (!row) return;
+
+            const minInput = row.querySelector('.br-min');
+            const maxInput = row.querySelector('.br-max');
+            if (!minInput || !maxInput) return;
+
+            const minWarning = minInput.nextElementSibling;
+            const maxWarning = maxInput.nextElementSibling;
+
             const currentArea = document.getElementById('subTransect').value;
-            const warningEl = inputEl.nextElementSibling;
-            
-            // Helper function to easily clear all warnings
-            const resetStyles = () => {
-                inputEl.style.color = "var(--text-main)";
-                inputEl.style.borderColor = "var(--border-light)";
-                inputEl.style.backgroundColor = "var(--card-bg)";
+            const knownMax = colonyMaxHeights[currentArea];
+
+            const minVal = parseFloat(minInput.value);
+            const maxVal = parseFloat(maxInput.value);
+
+            // Helper to clear warnings
+            const resetStyles = (el, warningEl) => {
+                el.style.color = "var(--text-main)";
+                el.style.borderColor = "var(--border-light)";
+                el.style.backgroundColor = "var(--card-bg)";
                 if (warningEl && warningEl.classList.contains('ht-warning')) {
                     warningEl.style.display = "none";
+                    warningEl.innerText = "";
                 }
             };
 
-            // 2. If no area is selected, or we don't have data, RESET and do nothing.
-            if (!currentArea || colonyMaxHeights[currentArea] === undefined) {
-                resetStyles(); // <--- THE FIX: Clears the red if you switch to a site with no data
-                return;
-            }
-
-            const knownMax = colonyMaxHeights[currentArea];
-            const inputValue = parseFloat(inputEl.value);
-
-            // 3. Check if the typed value exceeds the known max height
-            if (!isNaN(inputValue) && inputValue > knownMax) {
-                // Warning State
-                inputEl.style.color = "var(--danger)";
-                inputEl.style.borderColor = "var(--danger)";
-                inputEl.style.backgroundColor = "var(--danger-bg)";
-                
+            // Helper to apply the red danger styling
+            const setWarning = (el, warningEl, msg) => {
+                el.style.color = "var(--danger)";
+                el.style.borderColor = "var(--danger)";
+                el.style.backgroundColor = "var(--danger-bg)";
                 if (warningEl && warningEl.classList.contains('ht-warning')) {
                     warningEl.style.display = "block";
-                    warningEl.innerText = `> max. colony height (${knownMax}m)`; 
+                    warningEl.innerText = msg;
                 }
-            } else {
-                // Normal State 
-                resetStyles();
+            };
+
+            // 1. Reset both inputs to their default, clean state first
+            resetStyles(minInput, minWarning);
+            resetStyles(maxInput, maxWarning);
+
+            let minError = null;
+            let maxError = null;
+
+            // 2. Original Logic: Check if either value exceeds the Colony Max Height
+            if (knownMax !== undefined) {
+                if (!isNaN(minVal) && minVal > knownMax) minError = `> colony max (${knownMax}m)`;
+                if (!isNaN(maxVal) && maxVal > knownMax) maxError = `> colony max (${knownMax}m)`;
             }
+
+            // 3. NEW LOGIC: Check if Min is greater than Max!
+            if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+                // If there's already an error (like exceeding colony max), we combine the messages
+                minError = minError ? minError + " & Min > Max" : "Min > Max";
+                maxError = maxError ? maxError + " & Max < Min" : "Max < Min";
+            }
+
+            // 4. Apply the red warnings if any errors were found
+            if (minError) setWarning(minInput, minWarning, minError);
+            if (maxError) setWarning(maxInput, maxWarning, maxError);
         }
 
         // NEW: Scans the entire page and re-runs validation on every height input
@@ -1630,7 +1742,7 @@
                 return;
             }
 
-            // NEW: Helper function to generate Area Tags (e.g., "NE01") for the UI display
+            // Helper function to generate Area Tags (e.g., "NE01") for the UI display
             const getTag = (route, area) => {
                 if (!route || !area || !transectData[route]) return "";
                 const index = transectData[route].indexOf(area);
@@ -1639,24 +1751,66 @@
             };
 
             container.innerHTML = checklists.map(chk => {
-                const spCount = chk.birds.length;
+                const spCount = chk.birds.filter(b => b.count > 0).length;
                 const totalBirds = chk.birds.reduce((sum, b) => sum + b.count, 0);
                 const hasDist = chk.disturbances.length > 0 ? '⚠️ Disturbance Logged' : '';
                 
-                // NEW: Calculate the tag and format the title (e.g., "[NE01] Che Lei Pai")
+                // Calculate the tag and format the title (e.g., "[NE01] Che Lei Pai")
                 const areaTag = getTag(chk.transectId, chk.subTransect);
                 const displayTitle = areaTag ? `<span style="color: #7f3f98;">[${areaTag}]</span> ${chk.subTransect}` : `${chk.transectId || 'No Line'} - ${chk.subTransect || 'No Seg'}`;
+
+                // --- NEW: Generate Dynamic Species Badges (Greater than 0 only) ---
+                let speciesBadges = '<div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px;">';
+                
+                // 1. Define your custom abbreviations dictionary here!
+                // You can add as many birds as you want to this list.
+                const abbrevMap = {
+                    "Black-naped Tern": "BNT",
+                    "Bridled Tern": "BT",
+                    "Roseate Tern": "RT",
+                    "Greater Crested Tern": "GCT",
+                    "Aleutian Tern": "AT",
+                    "White-winged Tern": "WWT",
+                    "Common Tern": "Comm.T",
+                    "Sooty Tern": "ST",
+                    "Little Tern": "LT",
+                    "Gull-billed Tern": "GBT",
+                    "Whiskered Tern": "WT",
+                    "Caspian Tern": "Casp.T",
+                    "Chinese Crested Tern": "CCT",
+                    "Brown Noddy": "Br.Noddy",
+                    "Black Noddy": "Blk.Noddy"
+                };
+
+                chk.birds.forEach(b => {
+                    const count = b.count || 0;
+                    
+                    if (count > 0) {
+                        const bg = 'var(--primary-light)';
+                        const border = 'var(--primary)';
+                        const color = 'var(--primary)';
+
+                        // 2. THE FIX: Look up the abbreviation in the map. 
+                        // If it is missing from the map, it safely falls back to the full name (b.species).
+                        const shortName = abbrevMap[b.species] || b.species; 
+
+                        speciesBadges += `<span style="background: ${bg}; border: 1px solid ${border}; color: ${color}; font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: bold; white-space: nowrap; line-height: 1;">${shortName}: ${count}</span>`;
+                    }
+                });
+                speciesBadges += '</div>';
 
                 return `
                 <div class="card" style="border-left: 5px solid #305f4b;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
+                        <div style="flex: 1; padding-right: 10px;">
                             <strong style="font-size: 16px;">${displayTitle}</strong><br>
                             <span style="font-size: 12px; color: #666;">🕒 ${chk.time} | 📅 ${chk.date}</span><br>
                             <span style="font-size: 14px; color: #7f3f98; font-weight: bold;">🐦 ${spCount} Species | ${totalBirds} Birds</span>
                             ${hasDist ? `<br><span style="font-size: 12px; color: #d94f3d; font-weight: bold;">${hasDist}</span>` : ''}
+                            
+                            ${speciesBadges}
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; flex-direction: column; gap: 5px; min-width: 65px;">
                             <button onclick="editChecklist('${chk.id}')" style="background: #e8f3c8; border: 1px solid #305f4b; color: #305f4b; padding: 6px 12px; border-radius: 4px; font-weight: bold; margin: 0;">Edit</button>
                             <button onclick="deleteChecklist('${chk.id}')" style="background: transparent; border: none; color: #d94f3d; text-decoration: underline; padding: 6px 12px; margin: 0; font-size: 12px;">Delete</button>
                         </div>
@@ -1888,13 +2042,23 @@ document.addEventListener('visibilitychange', function() {
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
+                // 1. Safari Fix: 'updateViaCache: none' forces Safari to actually check the network for a new sw.js file
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
                     .then((registration) => {
-                        console.log('ServiceWorker registered with scope:', registration.scope);
+                        console.log('ServiceWorker successfully registered.');
                     })
                     .catch((error) => {
                         console.log('ServiceWorker registration failed:', error);
                     });
+
+                // 2. The Auto-Refresh Fix: When the new sw.js takes over, automatically refresh the screen!
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        window.location.reload();
+                        refreshing = true;
+                    }
+                });
             });
         }
     </script>
