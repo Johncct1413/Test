@@ -890,7 +890,7 @@
                     for (let key in warnData) {
                         // THE FIX: Only add the warning if it has a name AND its actionCode is not "CANCEL"
                         if (warnData[key].name && warnData[key].actionCode !== "CANCEL") {
-                            warningNames.push(`🚨 ${warnData[key].name}`);
+                            warningNames.push(`🚨 Weather Warnings: ${warnData[key].name}`);
                         }
                     }
 
