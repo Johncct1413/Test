@@ -882,14 +882,15 @@
                 const warnRes = await fetch(warnUrl, { signal: weatherAbortController.signal });
                 const warnContainer = document.getElementById('weatherWarningContainer');
                 
-                if (warnRes.ok) {
+                                if (warnRes.ok) {
                     const warnData = await warnRes.json();
                     const warningNames = [];
                     
-                    // The HKO API returns an object of active warnings. We loop through to extract the names.
+                    // The HKO API returns an object of recent warnings. We loop through to extract the active ones.
                     for (let key in warnData) {
-                        if (warnData[key].name) {
-                            warningNames.push(`🚨 Weather Warnings: ${warnData[key].name}`);
+                        // THE FIX: Only add the warning if it has a name AND its actionCode is not "CANCEL"
+                        if (warnData[key].name && warnData[key].actionCode !== "CANCEL") {
+                            warningNames.push(`🚨 ${warnData[key].name}`);
                         }
                     }
 
@@ -897,12 +898,13 @@
                         warnContainer.innerHTML = warningNames.join('<br>');
                         warnContainer.style.display = 'block';
                     } else {
-                        warnContainer.style.display = 'none'; // Hide if no warnings exist
+                        warnContainer.style.display = 'none'; // Hide if no active warnings exist
                     }
                 } else {
                     console.warn("Could not fetch warnings.");
                     warnContainer.style.display = 'none';
                 }
+
 
                 let noticeMsg = "✅ Weather data auto-filled successfully!\n\n";
                 noticeMsg += `🎯 Target Location: ${currentArea ? currentArea : currentRoute}\n`;
