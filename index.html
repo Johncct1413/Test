@@ -889,7 +889,7 @@
                     // The HKO API returns an object of active warnings. We loop through to extract the names.
                     for (let key in warnData) {
                         if (warnData[key].name) {
-                            warningNames.push(`🚨 ${warnData[key].name}`);
+                            warningNames.push(`🚨 Weather Warning: ${warnData[key].name}`);
                         }
                     }
 
