@@ -1486,8 +1486,8 @@
             document.getElementById('surveyor').value = chk.surveyor || "";
             // --- NEW: Copy the weather warning from the previous area ---
             const warnContainer = document.getElementById('weatherWarningContainer');
-            if (lastChk.weatherWarning) {
-                warnContainer.innerHTML = lastChk.weatherWarning;
+            if (chk.weatherWarning) {
+                warnContainer.innerHTML = chk.weatherWarning;
                 warnContainer.style.display = 'block';
             } else {
                 warnContainer.style.display = 'none';
