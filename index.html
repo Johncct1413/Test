@@ -1178,6 +1178,7 @@
                 afcdStaff: document.getElementById('afcdStaff').value.trim(),
                 surveyor: document.getElementById('surveyor').value.trim(),
                 setupRemarks: document.getElementById('setupRemarks').value.trim(),
+                weatherwarning: document.getElementById('weatherWarningContainer').innerHTML,
                 birds: [
                     { species: 'Black-naped Tern', count: 0, remarks: '', nests: '', juvs: '', minH: '', maxH: '' },
                     { species: 'Bridled Tern', count: 0, remarks: '', nests: '', juvs: '', minH: '', maxH: '' },
@@ -1240,6 +1241,15 @@
             document.getElementById('afcdStaff').value = lastChk.afcdStaff || '';   
             document.getElementById('surveyor').value = lastChk.surveyor || '';  
             document.getElementById('setupRemarks').value = lastChk.setupRemarks || '';
+            // --- NEW: Copy the weather warning from the previous area ---
+            const warnContainer = document.getElementById('weatherWarningContainer');
+            if (lastChk.weatherWarning) {
+                warnContainer.innerHTML = lastChk.weatherWarning;
+                warnContainer.style.display = 'block';
+            } else {
+                warnContainer.style.display = 'none';
+                warnContainer.innerHTML = '';
+            }
 
             // 5. Switch to the Route tab for review
             switchTab('tab-setup');
@@ -1278,7 +1288,8 @@
             chk.windForce = document.getElementById('envWindForce').value;
             chk.afcdStaff = document.getElementById('afcdStaff').value.trim();
             chk.surveyor = document.getElementById('surveyor').value.trim();
-            chk.setupRemarks = document.getElementById('setupRemarks').value.trim(); // NEW
+            chk.setupRemarks = document.getElementById('setupRemarks').value.trim();
+            chk.weatherWarning = document.getElementById('weatherWarningContainer').innerHTML;
 
             const validBirds = [];
             document.querySelectorAll('.species-row').forEach(row => {
@@ -1472,7 +1483,16 @@
             document.getElementById('envWindForce').value = chk.windForce;
             document.getElementById('setupRemarks').value = chk.setupRemarks || "";
             document.getElementById('afcdStaff').value = chk.afcdStaff || "";
-            document.getElementById('surveyor').value = chk.surveyor || ""; 
+            document.getElementById('surveyor').value = chk.surveyor || "";
+            // --- NEW: Copy the weather warning from the previous area ---
+            const warnContainer = document.getElementById('weatherWarningContainer');
+            if (lastChk.weatherWarning) {
+                warnContainer.innerHTML = lastChk.weatherWarning;
+                warnContainer.style.display = 'block';
+            } else {
+                warnContainer.style.display = 'none';
+                warnContainer.innerHTML = '';
+            }
 
             document.getElementById('startBtn').innerText = "Continue to Checklist ➔";
             document.getElementById('speciesContainer').innerHTML = '';
