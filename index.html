@@ -894,10 +894,30 @@
                     const warningNames = [];
                     
                     // The HKO API returns an object of recent warnings. We loop through to extract the active ones.
+                    // The HKO API returns an object of recent warnings. We loop through to extract the active ones.
                     for (let key in warnData) {
-                        // THE FIX: Only add the warning if it has a name AND its actionCode is not "CANCEL"
-                        if (warnData[key].name && warnData[key].actionCode !== "CANCEL") {
-                            warningNames.push(`🚨 Weather Warnings: ${warnData[key].name}`);
+                        const warn = warnData[key];
+                        
+                        // Only add the warning if it has a name AND its actionCode is not "CANCEL"
+                        if (warn.name && warn.actionCode !== "CANCEL") {
+                            let displayName = warn.name;
+
+                            // THE FIX: Translate hidden HKO codes into specific colors or Typhoon numbers
+                            if (warn.code === "WRAINA") displayName = "Amber Rainstorm Warning Signal";
+                            else if (warn.code === "WRAINR") displayName = "Red Rainstorm Warning Signal";
+                            else if (warn.code === "WRAINB") displayName = "Black Rainstorm Warning Signal";
+                            
+                            // Let's also fix Typhoon Signals so they show their numbers!
+                            else if (warn.code === "TC1") displayName += " (No. 1)";
+                            else if (warn.code === "TC3") displayName += " (No. 3)";
+                            else if (warn.code === "TC8NE") displayName += " (No. 8 Northeast)";
+                            else if (warn.code === "TC8SE") displayName += " (No. 8 Southeast)";
+                            else if (warn.code === "TC8NW") displayName += " (No. 8 Northwest)";
+                            else if (warn.code === "TC8SW") displayName += " (No. 8 Southwest)";
+                            else if (warn.code === "TC9") displayName += " (No. 9)";
+                            else if (warn.code === "TC10") displayName += " (No. 10)";
+
+                            warningNames.push(`🚨 Weather Warnings: ${displayName}`);
                         }
                     }
 
@@ -1366,6 +1386,7 @@
             document.getElementById('setupRemarks').value = ""; 
             document.getElementById('afcdStaff').value = "";
             document.getElementById('surveyor').value = "";
+            document.getElementById('weatherWarningContainer').style.display = 'none';
             
             setNow(); 
             
@@ -1421,6 +1442,7 @@
         document.getElementById('setupRemarks').value = ""; 
         document.getElementById('afcdStaff').value = "";
         document.getElementById('surveyor').value = "";
+        document.getElementById('weatherWarningContainer').style.display = 'none';
         
         setNow(); 
         
